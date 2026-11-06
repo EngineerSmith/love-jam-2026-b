@@ -1,0 +1,6 @@
+{
+  "postload": {
+    "filter": "nearest",
+    "wrap": "repeat"
+  }
+}

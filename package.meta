@@ -16,6 +16,12 @@
       "mandatory": true,
       "versionRange": "[0.0.1,)",
       "ordering": "AFTER"
+    },
+    {
+      "id": "menu",
+      "mandatory": true,
+      "versionRange": "[1.0.0,)",
+      "ordering": "AFTER"
     }
   ]
 }

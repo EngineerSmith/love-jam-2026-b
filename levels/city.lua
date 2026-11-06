@@ -6,14 +6,14 @@ return function(level)
 
   level.active = function(_, flag)
     if flag then
-      player.addToLevel(level, level:getFlag(flag))
+      player:addToLevel(level, level:getFlag(flag))
     else
-      player.addToLevel(level)
+      player:addToLevel(level)
     end
   end
 
   level.deactivate = function()
-    player.removeFromLevel(level)
+    player:removeFromLevel(level)
   end
 
   level.update = function(_, _)

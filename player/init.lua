@@ -1,17 +1,12 @@
-local lg = love.graphics
 
 local vornmath = require("libs.vornmath")
-local slick = require("libs.slick")
 
-local hook = require("src.core.hook")
-local graphicsManager = require("src.core.graphicsManager")
 local sprite = require("src.core.graphicsManager.sprite")
 
-local gm = graphicsManager
-
-local transform = require("s3d:transform")
-local characterPlane = require("s3d:characterPlane")
 local camera = require("s3d:camera")
+
+local character = require("lj26b:character")
+local stateFactory = require("lj26b:stateFactory")
 
 local normalize
 do
@@ -23,49 +18,31 @@ do
   end
 end
 
-local controller = require(":player.controls")
-
-local player = {
-  transform = transform.new(),
-  levelInfo = { },
+local player = character.new({
   facing = { 0, 1 },
+  shape = require("libs.slick").newCircleShape(0, 0, 0.25),
   attributes = {
-    walkSpeed = 3,
-    dodgeSpeed = 6,
-    dodgeDuration = 0.4,
-    dodgeCooldown = 0.5,
-    attackSpeed = 1,
-    attackDuration = 0.4,
-    -- Stamina
-    maxStamina = 100,
-    staminaRegenRate= 45,
-    dodgeStaminaCost = 30,
-    dodgeStaminaDelay = 0.6,
-    attackStaminaCost = 15,
+    walkSpeed          = 3,
+    dodgeSpeed         = 6,
+    dodgeDuration      = 0.4,
+    dodgeCooldown      = 0.5,
+    attackSpeed        = 1,
+    attackDuration     = 0.4,
+    maxStamina         = 100,
+    staminaRegenRate   = 45,
+    dodgeStaminaCost   = 30,
+    dodgeStaminaDelay  = 0.6,
+    attackStaminaCost  = 15,
     attackStaminaDelay = 0.4,
+  },
+})
 
-  },
-  equipment = {
-    hand = nil,
-  },
-  _lastFacingSign = 1,
-  _stamina = 0,
-  _staminaRegenDelay = .3,
+player.equipment = {
+  hand = nil,
 }
 
----
-
-player.changeState = function(newState)
-  if player.currentState and player.currentState.exit then
-    player.currentState:exit()
-  end
-  player.currentState = newState
-  if player.currentState and player.currentState.enter then
-    player.currentState:enter()
-  end
-end
-
-local getMovementInput = function()
+local controller = require("lj26b:player.controls")
+player.getMovementInput = function(self) -- TODO define controller within player
   local rawDx, rawDy = controller:get("move")
   if rawDx == 0 and rawDy == 0 then
     return 0, 0
@@ -89,267 +66,195 @@ end
 
 local states = { }
 
-states.move = {
+states.move = stateFactory.new({
   sprites = {
     move = sprite.new("lj26b:characters/player/Walk_Side"),
     idle = sprite.new("lj26b:characters/player/Idle_Side"),
     idleFidget = sprite.new("lj26b:characters/player/Idle_Fidget_Side"),
   },
   onIdleFinish = function()
-    local state = states.move
-    state.sprite:seek(1)
-    if state.sprite ~= state.sprites.idleFidget and love.math.random() <= 0.05 then
-      state.sprite = state.sprites.idleFidget:start(state.onIdleFinish)
+    local self = states.move
+    self.sprite:seek(1)
+    if self.sprite ~= self.sprites.idleFidget and love.math.random() <= 0.05 then
+      self.sprite = self.sprites.idleFidget:start(self.onIdleFinish)
     else
-      state.sprite = state.sprites.idle:start(state.onIdleFinish)
+      self.sprite = self.sprites.idle:start(self.onIdleFinish)
     end
   end,
-  enter = function(state)
+  enter = function(self)
     local dx, dy = controller:get("move")
     if dx == 0 and dy == 0 then
-      state.motion = "idle"
-      state.sprite = state.sprites.idle:start(state.onIdleFinish)
+      self.motion = "idle"
+      self.sprite = self.sprites.idle:start(self.onIdleFinish)
     else
-      state.motion = "moving"
-      state.sprite = state.sprites.move:start()
+      self.motion = "moving"
+      self.sprite = self.sprites.move:start()
     end
   end,
-  exit = function(state)
-    for _, sprite in pairs(state.sprites) do
-      sprite:stop(true):seek(1) -- stop and reset
-    end
-    state.sprite = nil
-  end,
-  update = function(state, dt)
+  update = function(self, char, dt)
     if controller:pressed("dodge") then
-      if player._stamina >= player.attributes.dodgeStaminaCost then
-        player.changeState(states.dodge)
+      if char.stamina >= char.attributes.dodgeStaminaCost then
+        char:changeState(states.dodge)
         return
-      else
-        -- todo bad noise
+      -- else -- todo bad noise
       end
     end
     if controller:pressed("attack") then
-      if player._stamina >= player.attributes.attackStaminaCost then
-        player.changeState(states.attack)
+      if char.stamina >= char.attributes.attackStaminaCost then
+        char:changeState(states.attack)
         return
-      else
-        -- todo bad noise
+      -- else -- todo bad noise
       end
     end
 
-    local dx, dy = getMovementInput()
+    local dx, dy = char:getMovementInput()
     local isMoving = dx ~= 0 or dy ~= 0
 
     if isMoving then
       local dirX, dirY = normalize(dx, dy)
-      player.facing[1], player.facing[2] = dirX, dirY
+      char.facing[1], char.facing[2] = dirX, dirY
 
-      if state.motion ~= "moving" then
-        state.motion = "moving"
-        state.sprite:stop(true):seek(1)
-        state.sprite = state.sprites.move:start()
+      if self.motion ~= "moving" then
+        self.motion = "moving"
+        self.sprite:stop(true):seek(1)
+        self.sprite = self.sprites.move:start()
       end
 
-      local goalX = player.transform.position[1] + dirX * player.attributes.walkSpeed * dt
-      local goalY = player.transform.position[2] + dirY * player.attributes.walkSpeed * dt
+      local goalX = char.transform.position[1] + dirX * char.attributes.walkSpeed * dt
+      local goalY = char.transform.position[2] + dirY * char.attributes.walkSpeed * dt
 
-      if player.levelInfo.world then
-        local actualX, actualY = player.levelInfo.world:update(player, goalX, goalY)
-        player.transform:set(actualX, actualY, player.transform.position[3])
+      if char.levelInfo.world then
+        local actualX, actualY = char.levelInfo.world:update(char, goalX, goalY)
+        char.transform:set(actualX, actualY, char.transform.position[3])
       end
     else
-      if state.motion == "moving" then
-        state.motion = "idle"
-        state.sprite:stop(true):seek(1)
-        state.sprite = state.sprites.idle:start(state.onIdleFinish)
+      if self.motion == "moving" then
+        self.motion = "idle"
+        self.sprite:stop(true):seek(1)
+        self.sprite = self.sprites.idle:start(self.onIdleFinish)
       end
     end
   end,
-}
+})
 
-states.dodge = {
+states.dodge = stateFactory.new({
   sprites = {
     dodge = sprite.new("lj26b:characters/player/Dodge_Side"),
     dodgeCharge = sprite.new("lj26b:characters/player/Dodge_Charge_Side"),
   },
   onChargeFinish = function()
-    local state = states.dodge
-    if state.sprite.isPlaying then state.sprite:stop(true) end
-    state.sprite:seek(1)
-    state.motion = "dodging"
-    state.sprite = state.sprites.dodge:start() -- loops
+    local self = states.dodge
+    if self.sprite.isPlaying then self.sprite:stop(true) end
+    self.sprite:seek(1)
+    self.motion = "dodging"
+    self.sprite = self.sprites.dodge:start()
   end,
-  enter = function(state)
-    state.dodgeTimer = player.attributes.dodgeDuration
-    state.elapsed = 0
+  enter = function(self, char)
+    self.dodgeTimer = char.attributes.dodgeDuration
+    self.elapsed = 0
 
-    player._stamina = player._stamina - player.attributes.dodgeStaminaCost
-    player._staminaRegenDelay = player.attributes.dodgeStaminaDelay
+    char.stamina = char.stamina - char.attributes.dodgeStaminaCost
+    char.staminaRegenDelay = char.attributes.dodgeStaminaDelay
 
-    local dx, dy = getMovementInput()
+    local dx, dy = char:getMovementInput()
     if dx == 0 and dy == 0 then
-      state.dodgeDirection = player.facing
+      self.dodgeDirection = char.facing
     else
-      state.dodgeDirection = { normalize(dx, dy) }
-      player.facing[1], player.facing[2] = state.dodgeDirection[1], state.dodgeDirection[2]
+      self.dodgeDirection = { normalize(dx, dy) }
+      char.facing[1], char.facing[2] = self.dodgeDirection[1], self.dodgeDirection[2]
     end
-    state.motion = "charging"
+    self.motion = "charging"
 
-    local chargeSprite = state.sprites.dodgeCharge
+    local chargeSprite = self.sprites.dodgeCharge
     if chargeSprite.frameDuration ~= 0 and chargeSprite.frames then
       local chargeNativeDuration = chargeSprite.frameDuration * #chargeSprite.frames
-      local targetChargeDuration = player.attributes.dodgeDuration * 0.35
+      local targetChargeDuration = char.attributes.dodgeDuration * 0.35
       if chargeNativeDuration >0 and targetChargeDuration > 0 then
         chargeSprite.timeScale = chargeNativeDuration / targetChargeDuration
       end
     end
-
-    state.sprite = chargeSprite:start(state.onChargeFinish)
+    self.sprite = chargeSprite:start(self.onChargeFinish)
   end,
-  exit = function(state)
-    for _, sprite in pairs(state.sprites) do
-      sprite:stop(true):seek(1) -- stop and reset
-    end
-    state.sprite = nil
-  end,
-  update = function(state, dt)
-    state.dodgeTimer = state.dodgeTimer - dt
-    state.elapsed = state.elapsed + dt
-
-    if state.dodgeTimer <= 0 then
-      player.changeState(states.move)
+  update = function(self, char, dt)
+    self.dodgeTimer = self.dodgeTimer - dt
+    self.elapsed = self.elapsed + dt
+    if self.dodgeTimer <= 0 then
+      char:changeState(states.move)
       return
     end
 
-    if state.motion == "charging" and state.elapsed >= player.attributes.dodgeDuration * 0.35 then
-      state.onChargeFinish()
+    if self.motion == "charging" and self.elapsed >= char.attributes.dodgeDuration * 0.35 then
+      self.onChargeFinish()
     end
 
-    local goalX = player.transform.position[1] + state.dodgeDirection[1] * player.attributes.dodgeSpeed * dt
-    local goalY = player.transform.position[2] + state.dodgeDirection[2] * player.attributes.dodgeSpeed * dt
+    local goalX = char.transform.position[1] + self.dodgeDirection[1] * char.attributes.dodgeSpeed * dt
+    local goalY = char.transform.position[2] + self.dodgeDirection[2] * char.attributes.dodgeSpeed * dt
 
-    if player.levelInfo.world then
-      local actualX, actualY = player.levelInfo.world:update(player, goalX, goalY)
-      player.transform:set(actualX, actualY, player.transform.position[3])
+    if char.levelInfo.world then -- todo make function in character
+      local actualX, actualY = char.levelInfo.world:update(char, goalX, goalY)
+      char.transform:set(actualX, actualY, char.transform.position[3])
     end
   end,
-}
+})
 
-states.attack = {
+states.attack = stateFactory.new({
   sprites = {
-    attack = sprite.new("engine:textures/lava_still"),
+    attack = sprite.new("engine:textures/lava_still"), -- placeholder
   },
-  enter = function(state)
-    state.attackTimer = player.attributes.attackDuration
+  enter = function(self, char)
+    self.attackTimer = char.attributes.attackDuration
 
-    player._stamina = player._stamina - player.attributes.attackStaminaCost
-    player._staminaRegenDelay = player.attributes.attackStaminaDelay
+    char.stamina = char.stamina - char.attributes.attackStaminaCost
+    char.staminaRegenDelay = char.attributes.attackStaminaDelay
 
-    local dx, dy = getMovementInput()
+    local dx, dy = char:getMovementInput()
     if dx == 0 and dy == 0 then
-      state.attackDirection = { player.facing[1],  player.facing[2] }
+      self.attackDirection = { char.facing[1],  char.facing[2] }
     else
-      state.attackDirection = { normalize(dx, dy) }
-      player.facing[1], player.facing[2] = state.attackDirection[1], state.attackDirection[2]
+      self.attackDirection = { normalize(dx, dy) }
+      char.facing[1], char.facing[2] = self.attackDirection[1], self.attackDirection[2]
     end
 
-    state.motion = "attacking"
-    state.sprite = state.sprites.attack:start()
-    if state.sprite.frameDuration ~= 0 and state.sprite.frames then
-      state.sprite.timeScale = (state.sprite.frameDuration * #state.sprite.frames) / player.attributes.attackDuration
+    self.motion = "attacking"
+    self.sprite = self.sprites.attack:start()
+    if self.sprite.frameDuration ~= 0 and self.sprite.frames then
+      self.sprite.timeScale = (self.sprite.frameDuration * #self.sprite.frames) / char.attributes.attackDuration
     end
   end,
-  exit = function(state)
-    for _, sprite in pairs(state.sprites) do
-      sprite:stop(true):seek(1) -- stop and reset
-    end
-    state.sprite = nil
-  end,
-  update = function(state, dt)
-    state.attackTimer = state.attackTimer - dt
-    if state.attackTimer <= 0 then
-      player.changeState(states.move)
+  update = function(self, char, dt)
+    self.attackTimer = self.attackTimer - dt
+    if self.attackTimer <= 0 then
+      char:changeState(states.move)
       return
     end
 
-    local goalX = player.transform.position[1] + state.attackDirection[1] * player.attributes.attackSpeed * dt
-    local goalY = player.transform.position[2] + state.attackDirection[2] * player.attributes.attackSpeed * dt
+    local goalX = char.transform.position[1] + self.attackDirection[1] * char.attributes.attackSpeed * dt
+    local goalY = char.transform.position[2] + self.attackDirection[2] * char.attributes.attackSpeed * dt
 
-    if player.levelInfo.world then
-      local actualX, actualY = player.levelInfo.world:update(player, goalX, goalY)
-      player.transform:set(actualX, actualY, player.transform.position[3])
+    if char.levelInfo.world then
+      local actualX, actualY = char.levelInfo.world:update(char, goalX, goalY)
+      char.transform:set(actualX, actualY, char.transform.position[3])
     end
   end,
-}
+})
 
----
-
-player.addToLevel = function(level, position)
-  if type(position) == "table" then
-    player.transform:set(unpack(position))
-  end
-  -- Add physics body
-  level.world:add(player, player.transform.position[1], player.transform.position[2], slick.newCircleShape(0, 0, .25))
-  player.levelInfo.world = level.world
-  player.changeState(states.move)
+player.addToLevel = function(self, level, position)
+  getmetatable(player).addToLevel(self, level, position)
+  self:changeState(states.move)
+  self.stamina = 0 -- Prevent stamina use during level transition
+  self.staminaRegenDelay = 0.3
 end
 
-player.removeFromLevel = function(level)
-  level.world:remove(player)
-end
+player.update = function(self, dt)
+  getmetatable(player).update(self, dt)
 
-player.update = function(dt)
-  if player._staminaRegenDelay > 0 then
-    player._staminaRegenDelay = player._staminaRegenDelay - dt
+  if self.staminaRegenDelay > 0 then
+    self.staminaRegenDelay = self.staminaRegenDelay - dt
   else
-    if player._stamina < player.attributes.maxStamina then
-      player._stamina = math.min(player.attributes.maxStamina, player._stamina + player.attributes.staminaRegenRate * dt)
+    if self.stamina < self.attributes.maxStamina then
+      self.stamina = math.min(self.attributes.maxStamina, self.stamina + self.attributes.staminaRegenRate * dt)
     end
   end
-
-  if player.currentState and player.currentState.update then
-    player.currentState:update(dt)
-  end
-end
-
-local getCharacterPlaneDirection = function()
-  local pp = player.transform.position
-  local ce = camera.current.eye
-  local toCamX = ce[1] - pp[1]
-  local toCamY = ce[2] - pp[2]
-
-  local _, _, camRightX, camRightY = camera.current:getHorizontalAxes()
-  local screenFacing = player.facing[1] * camRightX + player.facing[2] * camRightY
-  
-  if math.abs(screenFacing) > 1e-2 then
-    player._lastFacingSign = screenFacing > 0 and 1 or -1
-  end
-
-  if math.abs(toCamX) >= math.abs(toCamY) then
-    return player._lastFacingSign > 0 and "x-" or "x+"
-  else
-    return player._lastFacingSign > 0 and "y+" or "y-"
-  end
-end
-
-local shaderKey = "s3d:characterPlane"
-graphicsManager.loadShader(shaderKey)
-player.draw = function()
-  local shader = gm.getShader(shaderKey)
-  if not shader then return end
-  local state = player.currentState
-  if not state or not state.sprite then return end
-  local texture, quad = state.sprite:get()
-  if not texture or not quad then return end
-  lg.push("all")
-  lg.setDepthMode("lequal", true)
-  lg.setMeshCullMode("none")
-  gm.setUniform(shader, "u_ModelMatrix", player.transform:getMatrix())
-  camera.setUniforms(shader)
-  characterPlane.drawQuad(texture, quad, shader, getCharacterPlaneDirection())
-  lg.pop()
-  lg.draw(texture, quad, 0, 0, 0, 5)
 end
 
 return player

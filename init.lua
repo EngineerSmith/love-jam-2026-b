@@ -21,11 +21,11 @@ CONTEXT.hook("load", function(scene)
 end)
 
 CONTEXT.hook("engine:update", function(dt)
-  player.update(dt)
+  player:update(dt)
 end, nil, { scene = "game" })
 
 CONTEXT.hook("engine:draw", function(partialTick)
-  player.draw()
+  player:draw()
 end, nil, { scene = "game" })
 
 CONTEXT.hook("resize", function(width, height)

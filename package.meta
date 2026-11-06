@@ -1,0 +1,21 @@
+{
+  "id": "lj26b",
+  "name": "Love Game Jam 2026 B Side",
+  "version": "1.0.0",
+  "author": "EngineerSmith",
+  "description": "Game jam game code",
+  "dependencies": [
+    {
+      "id": "engine",
+      "mandatory": true,
+      "versionRange": "[0.0.1,)",
+      "ordering": "AFTER"
+    },
+    {
+      "id": "s3d",
+      "mandatory": true,
+      "versionRange": "[0.0.1,)",
+      "ordering": "AFTER"
+    }
+  ]
+}

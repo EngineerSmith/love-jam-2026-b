@@ -46,7 +46,7 @@ states.idle = {
 
 states.move = {
   sprites = {
-    move = sprite.new("lj26b:characters/player/Walk_Side"),
+    move = sprite.new("lj26b:characters/wolf/Walk_Side"),
   },
   enter = function(self, char)
     self.motion = "hunting"
@@ -165,7 +165,7 @@ local wolf = character.new({
     attackRadius = 1.0,
     biteRange = 1.5,
     attackDamage = 10,
-    walkSpeed = 2.2,
+    walkSpeed = 3.0,
   },
 })
 

@@ -45,7 +45,7 @@ manager.draw = function()
 
       -- TODO [scope questionable] Two tone font (assetManager doesn't support image fonts right now)
       local font = assetManager.getFont("menu:fonts/RobotoMono-Medium", 10 * windowManager.scale * n.scale)
-      lg.print(n.text, font, screenX, screenY)
+      lg.print(n.text, font, screenX - font:getWidth(n.text) / 2, screenY)
     end
   end
 end

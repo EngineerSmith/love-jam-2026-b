@@ -171,6 +171,9 @@ character.takeHit = function(self, damage)
 end
 
 character.update = function(self, dt)
+  if self.brain then
+    self.brain(self, dt)
+  end
   if self.currentState then
     self.currentState:update(self, dt)
   end

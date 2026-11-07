@@ -3,6 +3,7 @@ local camera = require("s3d:camera")
 local player = require("lj26b:player")
 
 local trainingDummy = require("lj26b:entities.trainingDummy")
+local wolf = require("lj26b:entities.wolf")
 
 return function(level)
 
@@ -20,6 +21,9 @@ return function(level)
     td:addToLevel(level, { -2,  0, 0 })
     local td = trainingDummy:clone()
     td:addToLevel(level, { -2,  2, 0 })
+
+    local wolf = wolf:clone()
+    wolf:addToLevel(level, { -5, 0, 0 })
   end
 
   level.deactivate = function()

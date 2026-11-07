@@ -100,7 +100,7 @@ states.dodge = {
       self.onChargeFinish = function()
         if self.sprite.isPlaying then self.sprite:stop(true) end
         self.sprite:seek(1)
-        self.motion = "dodging"
+        self.motion = "rolling"
         self.sprite = self.sprites.dodge:start()
       end
     end
@@ -108,8 +108,10 @@ states.dodge = {
     self.dodgeTimer = char.attributes.dodgeDuration
     self.elapsed = 0
 
+    -- TODO move stamina to attributes
     char.stamina = char.stamina - char.attributes.dodgeStaminaCost
     char.staminaRegenDelay = char.attributes.dodgeStaminaDelay
+    char.attributes.invulnerable = true
 
     local dx, dy = char:getMovementInput()
     if dx == 0 and dy == 0 then
@@ -140,6 +142,8 @@ states.dodge = {
 
     if self.motion == "charging" and self.elapsed >= char.attributes.dodgeDuration * 0.35 then
       self.onChargeFinish()
+    elseif self.motion == "rolling" and self.elapsed >= char.attributes.dodgeDuration * 0.8 then
+      self.attributes.invulnerable = false
     end
 
     local deltaX = self.dodgeDirection[1] * char.attributes.dodgeSpeed * dt
@@ -227,6 +231,18 @@ states.attack = {
     local deltaY = self.attackDirection[2] * char.attributes.attackSpeed * dt
 
     char:moveTowardsDelta(deltaX, deltaY, "touch")
+  end,
+}
+
+states.stagger = {
+  sprites = {
+    -- todo
+  },
+  enter = function(self, char)
+    char.attributes.invulnerable = true
+  end,
+  exit = function(self, char)
+    char.attributes.invulnerable = false
   end,
 }
 

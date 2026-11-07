@@ -17,7 +17,7 @@ states.idle = {
 
 states.stagger = {
   sprites = {
-    hit = sprite.new("lj26b:characters/dummy/Hit_Side")
+    hit = sprite.new("lj26b:characters/dummy/Hit_Side"),
   },
   enter = function(self, char)
     if not self.onFinish then
@@ -27,10 +27,10 @@ states.stagger = {
     end
     self.motion = "hit"
     self.sprite = self.sprites.hit:start(self.onFinish)
-    char.attributes.invulnerable = true
+    -- char.attributes.invulnerable = true
   end,
   exit = function(self, char)
-    char.attributes.invulnerable = false
+    -- char.attributes.invulnerable = false
   end,
   update = function(self, _, _)
     if self.sprite and self.sprite.metaUserdata and self.sprite.metaUserdata.flashFrames then
@@ -44,7 +44,7 @@ states.stagger = {
       end
 
       if isFlash then
-        self.sprite:setColor(1, .2, .2)
+        self.sprite:setColor(1, .4, .4)
       else
         self.sprite:setColor(1, 1, 1)
       end
@@ -65,7 +65,6 @@ local trainingDummy = character.new({
 
 trainingDummy.takeHit = function(self, damage)
   getmetatable(trainingDummy).takeHit(self, damage)
-
   self:changeState(self.states.stagger)
   self.attributes.currentHealth = self.attributes.maxHealth -- Dummy cannot die
 end

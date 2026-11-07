@@ -1,0 +1,11 @@
+{
+  "animation": {
+    "layout": "vertical",
+    "tileSize": 32,
+    "padding": 1,
+    "frameTime": 100
+  },
+  "postLoad": {
+    "filter": "nearest"
+  }
+}

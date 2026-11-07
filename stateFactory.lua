@@ -4,8 +4,10 @@ local stateMT = {
   getSpriteResourceKeys = function(self, outKeys, inMap)
     if not self.sprites then return end
     for _, sprite in pairs(self.sprites) do
-      if not inMap or not inMap[sprite._resourceKey] then
-        table.insert(outKeys, sprite._resourceKey)
+      local key = sprite._resourceKey
+      if key and (not inMap or not inMap[key]) then
+        if inMap then inMap[key] = true end
+        table.insert(outKeys, key)
       end
     end
   end,
@@ -13,11 +15,15 @@ local stateMT = {
 stateMT.__index = stateMT
 
 stateFactory.new = function(definition)
-  -- local state = setmetatable({ }, stateMT)
+  if getmetatable(definition) == stateMT then
+    -- we know we got a clone, so don't wrap default functions like below since it's already been done
+  end
+
   local state = { }
   for k, v in pairs(definition) do
     state[k] = v
   end
+  setmetatable(state, stateMT)
 
   local userEnter = definition.enter
   state.enter = function(self, character)
@@ -33,7 +39,7 @@ stateFactory.new = function(definition)
       end
     end
 
-    if userExit then userEnter(self, character) end
+    if userExit then userExit(self, character) end
   end
 
   local userUpdate = definition.update

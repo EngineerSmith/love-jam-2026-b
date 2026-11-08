@@ -143,7 +143,7 @@ states.dodge = {
     if self.motion == "charging" and self.elapsed >= char.attributes.dodgeDuration * 0.35 then
       self.onChargeFinish()
     elseif self.motion == "rolling" and self.elapsed >= char.attributes.dodgeDuration * 0.8 then
-      self.attributes.invulnerable = false
+      char.attributes.invulnerable = false
     end
 
     local deltaX = self.dodgeDirection[1] * char.attributes.dodgeSpeed * dt
@@ -234,15 +234,58 @@ states.attack = {
   end,
 }
 
+-- TODO player should be able to crawl away during stagger
 states.stagger = {
   sprites = {
-    -- todo
+    hit = sprite.new("lj26b:characters/dummy/Hit_Side"),
   },
   enter = function(self, char)
+    self.staggerTimer = 0.35
+    self.motion = "stagger"
+    self.sprite = self.sprites.hit:start()
+    if self.sprite.frameDuration ~= 0 and self.sprite.frames then
+      self.sprite.timeScale = (self.sprite.frameDuration * #self.sprite.frames) / self.staggerTimer
+    end
     char.attributes.invulnerable = true
   end,
   exit = function(self, char)
     char.attributes.invulnerable = false
+    char.attributes.staggerImmunity = 0.25
+  end,
+  update = function(self, char, dt)
+    self.staggerTimer = self.staggerTimer - dt
+
+    if self.sprite and self.sprite.metaUserdata and self.sprite.metaUserdata.flashFrames then
+      local isFlash = false
+      local currentIndex = self.sprite.frameIndex - 1
+      for _, frameId in ipairs(self.sprite.metaUserdata.flashFrames) do
+        if type(frameId) == "number" and currentIndex == frameId then
+          isFlash = true
+          break
+        end
+      end
+
+      if isFlash then
+        self.sprite:setColor(1, .4, .4)
+      else
+        self.sprite:setColor(1, 1, 1)
+      end
+    end
+
+    local dx, dy = char:getMovementInput()
+    local isMoving = dx ~= 0 or dy ~= 0
+    if isMoving then
+      local dirX, dirY = normalize(dx, dy)
+      char.facing[1], char.facing[2] = dirX, dirY
+      local deltaX = dirX * char.attributes.crawlSpeed * dt
+      local deltaY = dirY * char.attributes.crawlSpeed * dt
+      char:moveTowardsDelta(deltaX, deltaY)
+    end
+
+    -- Prevent possible future invul bugs if the animation stops somehow
+    if self.staggerTimer <= 0 or not self.sprite.isPlaying then
+      char:changeState(char.states.move)
+    end
   end,
 }
 
@@ -253,6 +296,7 @@ local player = character.new({
   defaultState = "move",
   attributes = {
     walkSpeed          = 3,
+    crawlSpeed         = 2,
     dodgeSpeed         = 6,
     dodgeDuration      = 0.4,
     dodgeCooldown      = 0.5,
@@ -266,6 +310,7 @@ local player = character.new({
     attackStaminaDelay = 0.4,
     maxHealth          = 100,
     currentHealth      = 100,
+    staggerImmunity    = 0,
   },
 })
 
@@ -317,6 +362,10 @@ end
 player.update = function(self, dt)
   getmetatable(player).update(self, dt)
 
+  if self.attributes.staggerImmunity > 0 then
+    self.attributes.staggerImmunity = self.attributes.staggerImmunity - dt
+  end
+
   -- Should delay decrease while state ~= move?
   if self.staminaRegenDelay > 0 then
     self.staminaRegenDelay = self.staminaRegenDelay - dt
@@ -325,6 +374,13 @@ player.update = function(self, dt)
       self.stamina = math.min(self.attributes.maxStamina, self.stamina + self.attributes.staminaRegenRate * dt)
     end
   end
+end
+
+player.takeHit = function(self, damage)
+  if self.attributes.staggerImmunity > 0 then return false end
+  local isDamaged = getmetatable(player).takeHit(self, damage)
+  self:changeState(self.states.stagger)
+  return isDamaged
 end
 
 return player

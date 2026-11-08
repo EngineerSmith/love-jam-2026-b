@@ -41,13 +41,7 @@ character.new = function(config)
     end
   end
 
-  -- Default on level join
-  -- if config.defaultState and self.states[config.defaultState] then
-  --   self:changeState(self.states[config.defaultState])
-  -- else
-    self.currentState = nil
-  -- end
-
+  self.currentState = nil
   self.currentLevel = nil
 
   return self

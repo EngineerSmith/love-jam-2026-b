@@ -165,13 +165,14 @@ local wolf = character.new({
     attackRadius = 1.0,
     biteRange = 1.5,
     attackDamage = 10,
-    walkSpeed = 3.0,
+    walkSpeed = 3.0, -- Fast move speed, but long build up attack! So, player can run away during attack animation
   },
 })
 
 wolf.takeHit = function(self, damage)
-  getmetatable(wolf).takeHit(self, damage)
+  local isDamaged = getmetatable(wolf).takeHit(self, damage)
   self:changeState(self.states.stagger)
+  return isDamaged
 end
 
 return wolf

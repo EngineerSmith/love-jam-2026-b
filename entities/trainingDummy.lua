@@ -64,9 +64,10 @@ local trainingDummy = character.new({
 })
 
 trainingDummy.takeHit = function(self, damage)
-  getmetatable(trainingDummy).takeHit(self, damage)
+  local isDamaged = getmetatable(trainingDummy).takeHit(self, damage)
   self:changeState(self.states.stagger)
   self.attributes.currentHealth = self.attributes.maxHealth -- Dummy cannot die
+  return isDamaged
 end
 
 return trainingDummy

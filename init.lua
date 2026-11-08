@@ -16,8 +16,9 @@ levelManager.addLevelModifier("game:kitchen", "lj26b:levels.kitchen")
 CONTEXT.hook("load", function(scene)
   if scene == "init" then
     levelManager.warmLevel("game:city")
+    levelManager.warmLevel("game:kitchen")
   elseif scene == "game" then
-    levelManager.setActiveLevel("game:city", "spawn")
+    levelManager.setActiveLevel("game:city", .5, .5, "spawn")
   end
 end)
 

@@ -4,6 +4,7 @@ local vornmath = require("libs.vornmath")
 local sprite = require("src.core.graphicsManager.sprite")
 
 local camera = require("s3d:camera")
+local levelManager = require("s3d:levelManager")
 
 local character = require("lj26b:character")
 local controller = require("lj26b:player.controls")
@@ -60,6 +61,15 @@ states.move = {
         char:changeState(char.states.attack)
         return
       -- else -- todo bad noise
+      end
+    end
+    if controller:pressed("kitchen") then
+      if char.currentLevel then
+        if char.currentLevel.id == "game:city" then
+          levelManager.setActiveLevel("game:kitchen", .5, .5, "spawn")
+        else
+          levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+        end
       end
     end
 
@@ -334,6 +344,7 @@ player.equipment = {
 player.getMovementInput = function(self) -- [Out of scope] TODO define controller within player
   local rawDx, rawDy = controller:get("move")
   if rawDx == 0 and rawDy == 0 then
+    self._snapAxis = nil
     return 0, 0
   end
 
@@ -343,11 +354,34 @@ player.getMovementInput = function(self) -- [Out of scope] TODO define controlle
   dy = camRightY * rawDx + camForwardY * rawDy
 
   if math.abs(rawDx) < 0.1 or math.abs(rawDy) < 0.1 then
-    if math.abs(dx) > math.abs(dy) then
+    if not self._snapAxis then
+      self._snapAxis = math.abs(dx) >= math.abs(dy) and "x" or "y"
+    end
+
+    local threshold = 0.2
+    if self._snapAxis == "x" then
+      if math.abs(dy) > math.abs(dx) + threshold then
+        self._snapAxis = "y"
+      end
+    else
+      if math.abs(dx) > math.abs(dy) + threshold then
+        self._snapAxis = "x"
+      end
+    end
+    
+    if self._snapAxis == "x" then
       dx, dy = dx > 0 and 1 or -1, 0
     else
       dx, dy = 0, dy > 0 and 1 or -1
     end
+
+    -- if math.abs(dx) > math.abs(dy) then
+    --   dx, dy = dx > 0 and 1 or -1, 0
+    -- else
+    --   dx, dy = 0, dy > 0 and 1 or -1
+    -- end
+  else
+    self._snapAxis = nil
   end
 
   return dx, dy

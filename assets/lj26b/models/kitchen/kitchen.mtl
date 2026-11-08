@@ -1,0 +1,7 @@
+newmtl Floor
+Kd 1 1 1
+map_Kd textures/floor.png
+
+newmtl Wall
+Kd 1 1 1
+map_Kd textures/wall.png

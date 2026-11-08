@@ -5,7 +5,7 @@
     "padding": 1,
     "frameTime": 100,
     "userdata": {
-      "flashFrames": [ 0, 2 ]
+      "flashFrames": [ 1, 2 ]
     }
   },
   "postLoad": {

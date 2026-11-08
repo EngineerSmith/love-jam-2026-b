@@ -9,6 +9,8 @@ controller:registerControl("right", { "key:a", "key:right" })
 controller:registerControl("dodge", { "key:space" })
 controller:registerControl("attack", { "mouse:1" })
 
+controller:registerControl("kitchen", { "key:tab" })
+
 controller:registerGroup("move", { up = "up", left = "left", down = "down", right = "right" })
 
 return controller

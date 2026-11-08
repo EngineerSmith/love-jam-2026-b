@@ -1,5 +1,7 @@
 local sprite = require("src.core.graphicsManager.sprite")
 
+local camera = require("s3d:camera")
+
 local character = require("lj26b:character")
 
 local wolfBrain = function(char, dt)
@@ -22,9 +24,15 @@ local wolfBrain = function(char, dt)
       char.target = player
     end
   elseif char.currentState == char.states.move then
-    if magSq <= (attackRadius * attackRadius) then
+    local camForwardX, camForwardY, camRightX, camRightY = camera.current:getHorizontalAxes()
+    -- local lateralDist = math.abs(dx * camRightX + dy * camRightY)
+    local depthDist = math.abs(dx * camForwardX + dy * camForwardY)
+
+    local verticalAlignmentThreshold = 0.45
+    if magSq <= (attackRadius * attackRadius) and depthDist <= verticalAlignmentThreshold and
+        char.attributes.attackCooldown <= 0 then
       char:changeState(char.states.attack)
-    elseif magSq > (aggroRadius * aggroRadius * 1.5) then
+    elseif magSq > (aggroRadius * aggroRadius * 1.3) then
       char.target = nil
       char:changeState(char.states.idle)
     end
@@ -51,20 +59,50 @@ states.move = {
   enter = function(self, char)
     self.motion = "hunting"
     self.sprite = self.sprites.move:start()
+    self.orbitSide = love.math.random() < 0.5 and 1 or -1
   end,
   update = function(self, char, dt)
     if not char.target then return end
 
+    if char.attributes.attackCooldown > 0 then
+      char.attributes.attackCooldown = char.attributes.attackCooldown - dt
+    end
+
     local tx, ty = char.target.transform.position[1], char.target.transform.position[2]
     local cx, cy = char.transform.position[1], char.transform.position[2]
     local dx, dy = tx - cx, ty - cy
-    local mag = math.sqrt(dx * dx + dy * dy)
+
+    local camForwardX, camForwardY, camRightX, camRightY = camera.current:getHorizontalAxes()
+    local lateralDist = dx * camRightX   + dy * camRightY
+    local depthDist   = dx * camForwardX + dy * camForwardY
+
+    local deadCentreThreshold = 0.7
+    if math.abs(lateralDist) < deadCentreThreshold then
+      lateralDist = lateralDist + self.orbitSide * 0.8
+    end
+
+    local steerWeightDepth = 1.5
+    local lat = (lateralDist > 0 and 1 or -1) * math.min(math.abs(lateralDist), 1.0)
+    local moveCamX = lat * camRightX + depthDist * steerWeightDepth * camForwardX
+    local moveCamY = lat * camRightY + depthDist * steerWeightDepth * camForwardY
+
+    local mag = math.sqrt(moveCamX * moveCamX + moveCamY * moveCamY)
 
     if mag > 1e-4 then
-      local ndx, ndy = dx / mag, dy / mag
-      char.facing[1], char.facing[2] = ndx, ndy
+      local ndx, ndy = moveCamX / mag, moveCamY / mag
+
+      local screenFacingDot = ndx * camRightX + ndy * camRightY
+      local facingThreshold = 0.25
+      if screenFacingDot > facingThreshold then
+        char.facing[1], char.facing[2] = camRightX, camRightY
+      elseif screenFacingDot < -facingThreshold then
+        char.facing[1], char.facing[2] = -camRightX, -camRightY
+      end
 
       local speed = char.attributes.walkSpeed
+      if char.attributes.attackCooldown > 0 then
+        speed = speed * 0.7 -- speed penalty
+      end
       local deltaX = ndx * speed * dt
       local deltaY = ndy * speed * dt
       char:moveTowardsDelta(deltaX, deltaY)
@@ -74,11 +112,12 @@ states.move = {
 
 states.attack = {
   sprites = {
-    attack = sprite.new("lj26b:characters/player/Lunge_Side"),
+    attack = sprite.new("lj26b:characters/wolf/Attack_Side"),
   },
   enter = function(self, char)
     if not self.onFinish then
       self.onFinish = function()
+        char.attributes.attackCooldown = 1.2
         char:changeState(char.states.move)
       end
     end
@@ -100,7 +139,7 @@ states.attack = {
   update = function(self, char, dt)
     if not self.hasBitten and self.sprite.metaUserdata and self.sprite.metaUserdata.attackOn then
       local targetFrameIndex = self.sprite.metaUserdata.attackOn + 1
-      if self.sprite.frameIndex then
+      if self.sprite.frameIndex == targetFrameIndex then
         self.hasBitten = true
 
         if char.target then
@@ -111,7 +150,14 @@ states.attack = {
 
           local biteRange = char.attributes.biteRange
           if magSq <= (biteRange * biteRange) then
-            char.target:takeHit(char.attributes.attackDamage)
+            local coneAngle = 120
+            local threshold = math.cos(math.rad(coneAngle * 0.5))
+            local mag = math.sqrt(magSq)
+            local nx, ny = dx / mag, dy / mag
+            local dot = nx * char.facing[1] + ny * char.facing[2]
+            if dot >= threshold then
+              char.target:takeHit(char.attributes.attackDamage)
+            end
           end
         end
       end
@@ -121,7 +167,7 @@ states.attack = {
 
 states.stagger = {
   sprites = {
-    hit = sprite.new("lj26b:characters/dummy/Hit_Side"),
+    hit = sprite.new("lj26b:characters/wolf/Stagger_Side"),
   },
   enter = function(self, char)
     if not self.onFinish then
@@ -152,6 +198,35 @@ states.stagger = {
   end,
 }
 
+states.death = {
+  sprites = {
+    death = sprite.new("lj26b:characters/wolf/Death_Side"),
+    still = sprite.new("lj26b:characters/wolf/Death_Side_Still"),
+  },
+  enter = function(self, char)
+    if not self.onFinish then
+      self.onFinish = function()
+        self.motion = "dead"
+        self.sprite = self.sprites.still
+        char:removeFromLevelWorld()
+        self.timer = 5
+      end
+    end
+    self.motion = "dying"
+    self.sprite = self.sprites.death:start(self.onFinish)
+  end,
+  update = function(self, char, dt)
+    if self.motion ~= "dead" then return end
+    self.timer = self.timer - dt
+    if self.timer < 0 then
+      char.transform:move(0, 0, -.4 * dt)
+      if self.timer < -1.5 then
+        char:removeFromLevel() -- stops updates
+      end
+    end
+  end,
+}
+
 local wolf = character.new({
   shape = require("libs.slick").newCircleShape(0, 0, .35),
   states = states,
@@ -166,12 +241,18 @@ local wolf = character.new({
     biteRange = 1.5,
     attackDamage = 10,
     walkSpeed = 3.0, -- Fast move speed, but long build up attack! So, player can run away during attack animation
+    attackCooldown = 0.0,
   },
 })
 
 wolf.takeHit = function(self, damage)
+  if self.currentState == self.states.death then return end
   local isDamaged = getmetatable(wolf).takeHit(self, damage)
-  self:changeState(self.states.stagger)
+  if self.attributes.currentHealth <= 0 then
+    self:changeState(self.states.death)
+  else
+    self:changeState(self.states.stagger)
+  end
   return isDamaged
 end
 

@@ -114,13 +114,20 @@ character.removeFromLevel = function(self, level)
   level = level or self.currentLevel
   if not level then return end
 
-  if level.world and self.shape then
-    level.world:remove(self)
-  end
+  self:removeFromLevelWorld()
   level:removeCharacter(self)
 
   if level == self.currentLevel then
     self.currentLevel = nil
+  end
+end
+
+character.removeFromLevelWorld = function(self, level)
+  level = level or self.currentLevel
+  if not level then return end
+
+  if level.world and level.world:has(self) and self.shape then
+    level.world:remove(self)
   end
 end
 
@@ -181,15 +188,21 @@ character.getPlaneDirection = function(self)
 
   local _, _, camRightX, camRightY = camera.current:getHorizontalAxes()
   local screenFacing = self.facing[1] * camRightX + self.facing[2] * camRightY
-  
+
   if math.abs(screenFacing) > 1e-2 then
     self.lastFacingSign = screenFacing > 0 and 1 or -1
   end
 
   if math.abs(toCamX) >= math.abs(toCamY) then
-    return self.lastFacingSign > 0 and "x-" or "x+"
+    -- return self.lastFacingSign > 0 and "x-" or "x+"
+    -- return toCamX > 0 and "x-" or "x+"
+    local isPositive = (toCamX > 0) == (self.lastFacingSign > 0)
+    return isPositive and "x-" or "x+"
   else
-    return self.lastFacingSign > 0 and "y+" or "y-"
+    -- return self.lastFacingSign > 0 and "y+" or "y-"
+    -- return toCamY > 0 and "y-" or "y+"
+    local isPositive = (toCamY > 0) == (self.lastFacingSign > 0)
+    return isPositive and "y-" or "y+"
   end
 end
 
@@ -210,6 +223,7 @@ character.draw = function(self, shader)
   graphicsManager.setUniform(shader, "u_Color", { self.currentState.sprite:getColor() })
   graphicsManager.setUniform(shader, "u_ModelMatrix", self.transform:getMatrix())
   characterPlane.drawQuad(texture, quad, shader, self:getPlaneDirection())
+  -- print(self.facing, self:getPlaneDirection(), camera.current.eye, self.transform.position)
 end
 
 return character

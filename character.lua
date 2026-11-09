@@ -9,7 +9,9 @@ local graphicsManager = require("src.core.graphicsManager")
 local stateFactory = require("lj26b:stateFactory")
 local damageNumbers = require("lj26b:damageNumbers")
 
-local character = { }
+local character = {
+  type = "character",
+}
 character.__index = character
 
 local id = 0
@@ -141,7 +143,7 @@ local collisionResponses = {
 character.moveTowardsGoal = function(self, goalX, goalY, collisionResponse)
   if not self.currentLevel then return end
 
-  local actualX, actualY = self.currentLevel.world:move(self, goalX, goalY, collisionResponse and collisionResponses[collisionResponse] or nil)
+  local actualX, actualY = self.currentLevel.world:move(self, goalX, goalY, type(collisionResponse) == "string" and collisionResponses[collisionResponse] or collisionResponse or nil)
   self.transform:set(actualX, actualY, self.transform.position[3])
 end
 

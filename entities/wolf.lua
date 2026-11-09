@@ -3,6 +3,7 @@ local sprite = require("src.core.graphicsManager.sprite")
 local camera = require("s3d:camera")
 
 local character = require("lj26b:character")
+local itemDefinitions = require(":inventory.itemDefinitions")
 
 local wolfBrain = function(char, dt)
   if char.currentState == char.states.stagger then return end
@@ -208,6 +209,9 @@ states.death = {
       self.onFinish = function()
         self.motion = "dead"
         self.sprite = self.sprites.still
+
+        self.spawnItem = char.currentLevel
+
         char:removeFromLevelWorld()
         self.timer = 5
       end
@@ -218,6 +222,10 @@ states.death = {
   update = function(self, char, dt)
     if self.motion ~= "dead" then return end
     self.timer = self.timer - dt
+    if self.spawnItem and self.timer < 4.5 then
+      itemDefinitions["wolf_tuff"]:spawn(self.spawnItem, { char.transform.position[1], char.transform.position[2], 0 } )
+      self.spawnItem = nil
+    end
     if self.timer < 0 then
       char.transform:move(0, 0, -.4 * dt)
       if self.timer < -1.5 then

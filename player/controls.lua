@@ -1,15 +1,16 @@
 local inputManager = require("src.core.inputManager")
 local controller = inputManager.getController()
 
-controller:registerControl("up",    { "key:w", "key:up" })
-controller:registerControl("left",  { "key:d", "key:left" })
-controller:registerControl("down",  { "key:s", "key:down" })
-controller:registerControl("right", { "key:a", "key:right" })
+controller:registerControl("up",    { "key:w", "key:up", "axis:lefty-" })
+controller:registerControl("left",  { "key:a", "key:left", "axis:leftx-" })
+controller:registerControl("down",  { "key:s", "key:down", "axis:lefty+" })
+controller:registerControl("right", { "key:d", "key:right", "axis:leftx+" })
 
-controller:registerControl("dodge", { "key:space" })
-controller:registerControl("attack", { "mouse:1" })
+controller:registerControl("dodge", { "key:space", "button:a" })
+controller:registerControl("attack", { "mouse:1", "axis:triggerright+" })
+controller:registerControl("inventory", { "key:e", "key:i", "button:back" })
 
-controller:registerControl("kitchen", { "key:tab" })
+controller:registerControl("kitchen", { "key:tab", "button:y" })
 
 controller:registerGroup("move", { up = "up", left = "left", down = "down", right = "right" })
 

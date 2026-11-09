@@ -8,6 +8,7 @@ return function(level)
 
   level.active = function(_, flag)
     kitchenCamera:setCurrent()
+    kitchenCamera:setAspectRatio(love.graphics.getDimensions())
     if flag then
       player:addToLevel(level, level:getFlag(flag))
     else

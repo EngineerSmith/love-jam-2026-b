@@ -16,6 +16,7 @@ return function(level)
 
   level.active = function(_, flag)
     cityCamera:setCurrent()
+    cityCamera:setAspectRatio(love.graphics.getDimensions())
     if flag then -- Player overrides "addtoLevel" to define it's default state on new level
       player:addToLevel(level, level:getFlag(flag))
     else
@@ -37,7 +38,9 @@ return function(level)
   level.deactivate = function()
     player:removeFromLevel(level)
     for _, char in ipairs(level.characters) do
-      char:removeFromLevelWorld()
+      if char.removeFromLevelWorld then
+        char:removeFromLevelWorld()
+      end
     end
     level:removeAllCharacter()
   end

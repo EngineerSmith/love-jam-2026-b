@@ -8,6 +8,7 @@ local levelManager = require("s3d:levelManager")
 
 local character = require("lj26b:character")
 local controller = require("lj26b:player.controls")
+local inventory = require("lj26b:inventory")
 
 local normalize
 do
@@ -50,14 +51,14 @@ states.move = {
   end,
   update = function(self, char, dt)
     if controller:pressed("dodge") then
-      if char.stamina >= char.attributes.dodgeStaminaCost then
+      if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
         char:changeState(char.states.dodge)
         return
       -- else -- todo bad noise
       end
     end
     if controller:pressed("attack") then
-      if char.stamina >= char.attributes.attackStaminaCost then
+      if char.attributes.stamina >= char.attributes.attackStaminaCost then
         char:changeState(char.states.attack)
         return
       -- else -- todo bad noise
@@ -118,9 +119,8 @@ states.dodge = {
     self.dodgeTimer = char.attributes.dodgeDuration
     self.elapsed = 0
 
-    -- TODO move stamina to attributes
-    char.stamina = char.stamina - char.attributes.dodgeStaminaCost
-    char.staminaRegenDelay = char.attributes.dodgeStaminaDelay
+    char.attributes.stamina = char.attributes.stamina - char.attributes.dodgeStaminaCost
+    char.attributes.staminaRegenDelay = char.attributes.dodgeStaminaDelay
     char.attributes.invulnerable = true
 
     local dx, dy = char:getMovementInput()
@@ -142,12 +142,52 @@ states.dodge = {
     end
     self.sprite = chargeSprite:start(self.onChargeFinish)
   end,
+  collisionResponse = function(_, other, _, _)
+    -- Can't check getmetatable, as `character:clone` can change it
+    if type(other) == "table" and other.type == "character" then
+      return "cross"
+    end
+    return "slide"
+  end,
+  exit = function(_, char)
+    char.attributes.invulnerable = false -- prevent bugs
+  end,
   update = function(self, char, dt)
     self.dodgeTimer = self.dodgeTimer - dt
     self.elapsed = self.elapsed + dt
     if self.dodgeTimer <= 0 then
-      char:changeState(char.states.move)
-      return
+      if char.currentLevel then
+        local px, py = char.transform.position[1], char.transform.position[2]
+        local collisions, count = char.currentLevel.world:test(char, px, py)
+        if count > 0 then
+          char.attributes.invulnerable = true -- as the character is technically stuck, we don't want the player to feel it is unfair
+
+          local pushX, pushY = 0, 0
+          for i = 1, count do
+            local collision = collisions[i]
+            pushX = pushX + collision.normal.x * collision.depth
+            pushY = pushY + collision.normal.y * collision.depth
+          end
+          local mag = math.sqrt(pushX * pushX + pushY * pushY)
+          local x, y = 0, 0
+          if mag > 1e-4 then
+            local dx, dy = pushX / mag, pushY / mag
+            x, y = char.currentLevel.world:update(char, px + dx * char.attributes.dodgeSpeed * dt, py + dy * char.attributes.dodgeSpeed * dt)
+          else
+            x, y = char.currentLevel.world:update(char, px + pushX, py + pushY)
+          end
+          char.transform.position[1], char.transform.position[2] = x, y
+          return
+        else
+          char.attributes.invulnerable = false
+          char:changeState(char.states.move)
+          return
+        end
+      else
+        char.attributes.invulnerable = false
+        char:changeState(char.states.move)
+        return
+      end
     end
 
     if self.motion == "charging" and self.elapsed >= char.attributes.dodgeDuration * 0.35 then
@@ -159,7 +199,7 @@ states.dodge = {
     local deltaX = self.dodgeDirection[1] * char.attributes.dodgeSpeed * dt
     local deltaY = self.dodgeDirection[2] * char.attributes.dodgeSpeed * dt
 
-    char:moveTowardsDelta(deltaX, deltaY)
+    char:moveTowardsDelta(deltaX, deltaY, self.collisionResponse)
   end,
 }
 
@@ -190,10 +230,15 @@ states.attack = {
     self.attackTimer = char.attributes.attackDuration
     self.hasHit = false
 
-    -- local weapon = char.equipment and char.equipment.hand or { damage = 15, range = 2.5 }
+    -- local handSlot = inventory.slots.equipment.hand
+    -- local weapon = handSlot and handSlot.item and handSlot.item.stats or {
+    --   damage = 10,
+    --   range = 1.3,
+    --   coneAngle = 110,
+    -- }
 
-    char.stamina = char.stamina - char.attributes.attackStaminaCost
-    char.staminaRegenDelay = char.attributes.attackStaminaDelay
+    char.attributes.stamina = char.attributes.stamina - char.attributes.attackStaminaCost
+    char.attributes.staminaRegenDelay = char.attributes.attackStaminaDelay
 
     local dx, dy = char:getMovementInput()
     if dx == 0 and dy == 0 then
@@ -208,6 +253,11 @@ states.attack = {
     if self.sprite.frameDuration ~= 0 and self.sprite.frames then
       self.sprite.timeScale = (self.sprite.frameDuration * #self.sprite.frames) / char.attributes.attackDuration
     end
+
+    -- if char.currentLevel then
+    --   local itemDefinitions = require(":inventory.itemDefinitions")
+    --   itemDefinitions["wolf_tuff"]:spawn(char.currentLevel, { char.transform.position[1] + 2, char.transform.position[2], 0 } )
+    -- end
   end,
   update = function(self, char, dt)
     self.attackTimer = self.attackTimer - dt
@@ -221,8 +271,14 @@ states.attack = {
       if self.sprite.frameIndex >= targetFrameIndex then
         self.hasHit = true
 
-        local weapon = char.equipment and char.equipment.hand or nil
-        if weapon and char.currentLevel then
+        local handSlot = inventory.slots.equipment.hand
+        local weapon = handSlot and handSlot.item and handSlot.item.stats or {
+          damage = 10,
+          range = 1.3,
+          coneAngle = 110,
+        }
+
+        if char.currentLevel then
           local closestList = char.currentLevel:getClosestCharacters(char, 1,
               createAttackFilter(self.attackDirection, weapon.range or 1.3, weapon.coneAngle or 120))
           local target = closestList[1]
@@ -299,47 +355,41 @@ states.stagger = {
   end,
 }
 
-local player = character.new({
-  facing = { 0, 1 },
-  shape = require("libs.slick").newCircleShape(0, 0, 0.25),
-  states = states,
-  defaultState = "move",
-  attributes = {
-    walkSpeed          = 3,
-    crawlSpeed         = 2,
-    dodgeSpeed         = 6,
-    dodgeDuration      = 0.4,
-    dodgeCooldown      = 0.5,
-    attackSpeed        = 1,
-    attackDuration     = 0.4,
-    maxStamina         = 100,
-    staminaRegenRate   = 45,
-    dodgeStaminaCost   = 30,
-    dodgeStaminaDelay  = 0.6,
-    attackStaminaCost  = 15, -- Move checks to equipment? I guess attacking should have a base cost!
-    attackStaminaDelay = 0.4,
-    maxHealth          = 100,
-    currentHealth      = 100,
-    staggerImmunity    = 0,
-  },
+local baseAttributes = {
+  walkSpeed          = 3,
+  crawlSpeed         = 2,
+  dodgeSpeed         = 5,
+  dodgeDuration      = 0.4,
+  dodgeCooldown      = 0.5,
+  attackSpeed        = 1,
+  attackDuration     = 0.25,
+  maxStamina         = 100,
+  staminaRegenRate   = 45,
+  dodgeStaminaCost   = 20,
+  dodgeStaminaDelay  = 0.6,
+  attackStaminaCost  = 15, -- Move checks to equipment? I guess attacking should have a base cost!
+  attackStaminaDelay = 0.4,
+  maxHealth          = 100,
+  currentHealth      = 100,
+  staggerImmunity    = 0,
+}
+local attributes = setmetatable({ }, {
+  __index = function(_, modifier)
+    if baseAttributes[modifier] then
+      local mod = inventory.getStatModifiers()[modifier] or 0
+      return baseAttributes[modifier] + mod
+    end
+  end,
+  __newindex = baseAttributes,
 })
 
-local equipment = {
-  hands = {
-    fists = {
-      name = "Fists",
-      damage = 15,
-      range = 1.3,
-      coneAngle = 110,
-      staminaCost = 10, -- maybe?
-      attacksStaminaDelay = 0.4,
-    }
-  }
-}
-
-player.equipment = {
-  hand = equipment.hands.fists, -- default equipment
-}
+local player = character.new({
+  facing = { 0, 1 },
+  shape = require("libs.slick").newCircleShape(0, 0, 0.2),
+  states = states,
+  defaultState = "move",
+  attributes = attributes,
+})
 
 player.getMovementInput = function(self) -- [Out of scope] TODO define controller within player
   local rawDx, rawDy = controller:get("move")
@@ -347,6 +397,7 @@ player.getMovementInput = function(self) -- [Out of scope] TODO define controlle
     self._snapAxis = nil
     return 0, 0
   end
+  rawDx = rawDx * -1
 
   local camForwardX, camForwardY, camRightX, camRightY = camera.current:getHorizontalAxes()
 
@@ -374,12 +425,6 @@ player.getMovementInput = function(self) -- [Out of scope] TODO define controlle
     else
       dx, dy = 0, dy > 0 and 1 or -1
     end
-
-    -- if math.abs(dx) > math.abs(dy) then
-    --   dx, dy = dx > 0 and 1 or -1, 0
-    -- else
-    --   dx, dy = 0, dy > 0 and 1 or -1
-    -- end
   else
     self._snapAxis = nil
   end
@@ -389,8 +434,8 @@ end
 
 player.addToLevel = function(self, level, position)
   getmetatable(player).addToLevel(self, level, position)
-  self.stamina = 0 -- Prevent stamina use during level transition
-  self.staminaRegenDelay = 0.3
+  self.attributes.stamina = 0 -- Prevent stamina use during level transition
+  self.attributes.staminaRegenDelay = 0.3
 end
 
 player.update = function(self, dt)
@@ -401,11 +446,11 @@ player.update = function(self, dt)
   end
 
   -- Should delay decrease while state ~= move?
-  if self.staminaRegenDelay > 0 then
-    self.staminaRegenDelay = self.staminaRegenDelay - dt
+  if self.attributes.staminaRegenDelay > 0 then
+    self.attributes.staminaRegenDelay = self.attributes.staminaRegenDelay - dt
   else
-    if self.stamina < self.attributes.maxStamina then
-      self.stamina = math.min(self.attributes.maxStamina, self.stamina + self.attributes.staminaRegenRate * dt)
+    if self.attributes.stamina < self.attributes.maxStamina then
+      self.attributes.stamina = math.min(self.attributes.maxStamina, self.attributes.stamina + self.attributes.attributes.staminaRegenRate * dt)
     end
   end
 end

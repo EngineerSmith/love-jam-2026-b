@@ -70,7 +70,9 @@ cell.releasedOn = function(node, scene)
   if toSlot then
     local equipSlot = other.state.equipment
     if equipSlot and toSlot then
+      print("hit")
       inventory.unequipItem(equipSlot, toSlot)
+      return
     end
   end
 end

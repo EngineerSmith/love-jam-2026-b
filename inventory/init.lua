@@ -139,7 +139,11 @@ end
 inventory.unequipItem = function(slotName, inventoryIndex)
   local targetSlot = inventory.slots.equipment[slotName]
   local invSlot = inventory.slots.items[inventoryIndex]
-  if not targetSlot or not invSlot or not targetSlot.item then return false end
+  if not targetSlot or not invSlot then return false end
+
+  if targetSlot.item then
+    return inventory.equipItem(slotName, inventoryIndex)
+  end
 
   if invSlot.item then
     if invSlot.item:eq(targetSlot.item) and invSlot.item.stackable then

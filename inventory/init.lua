@@ -126,10 +126,33 @@ inventory.equipItem = function(slotName, inventoryIndex)
   return true
 end
 
+inventory.moveEquipItem = function(slotName, otherSlotName)
+  local fromSlot = inventory.slots.equipment[slotName]
+  local toSlot = inventory.slots.equipment[otherSlotName]
+  if not fromSlot or not toSlot or not fromSlot.item or fromSlot.slotType ~= toSlot.slotType then return false end
+
+  local tempItem = toSlot.item
+  toSlot.item = fromSlot.item
+  fromSlot.item = tempItem
+end
+
 inventory.unequipItem = function(slotName, inventoryIndex)
   local targetSlot = inventory.slots.equipment[slotName]
   local invSlot = inventory.slots.items[inventoryIndex]
-  if not targetSlot or not invSlot or not targetSlot.item or invSlot.item then return false end
+  if not targetSlot or not invSlot or not targetSlot.item then return false end
+
+  if invSlot.item then
+    if invSlot.item:eq(targetSlot.item) and invSlot.item.stackable then
+      local spaceLeft = inventory._stackSize - invSlot.count
+      if spaceLeft >= 1 then
+        invSlot.count = invSlot.count + 1
+        targetSlot.item = nil
+        inventory._modifiersDirty = true
+        return true
+      end
+    end
+    return false
+  end
 
   invSlot.item = targetSlot.item
   invSlot.count = 1
@@ -139,7 +162,7 @@ inventory.unequipItem = function(slotName, inventoryIndex)
   return true
 end
 
-inventory.moveInventorySlot = function(fromIndex, toIndex)
+inventory.moveInventorySlot = function(fromIndex, toIndex, count)
   local toSlot = inventory.slots.items[toIndex]
   if not toSlot then return false end
 
@@ -172,7 +195,7 @@ inventory.moveInventorySlot = function(fromIndex, toIndex)
   end
 
   local fromSlot = inventory.slots.items[fromIndex]
-  if not fromSlot or not toSlot or fromSlot == toSlot then return false end
+  if not fromSlot or not toSlot or fromSlot == toSlot or not fromSlot.item then return false end
 
   if toSlot.item and fromSlot.item and toSlot.item:eq(fromSlot.item) and toSlot.item.stackable then
     local spaceLeft = inventory._stackSize - toSlot.count
@@ -188,10 +211,8 @@ inventory.moveInventorySlot = function(fromIndex, toIndex)
 
   local tempItem = toSlot.item
   local tempCount = toSlot.count
-
   toSlot.item = fromSlot.item
   toSlot.count = fromSlot.count
-
   fromSlot.item = tempItem
   fromSlot.count = tempCount
 
@@ -279,7 +300,7 @@ do
 
   local padding = 10
   inventory.drawToasts = function()
-    local font = assetManager.getFont("menu:fonts/RobotoMono-Medium", 15 * windowManager.scale)
+    local font = assetManager.getFont("lj26b:fonts/Comic_Neue/ComicNeue-Regular", 15 * windowManager.scale)
     local toastHeight = font:getHeight() + 5 * windowManager.scale * 2
 
     lg.push("all")
@@ -294,18 +315,20 @@ do
       elseif toast.time > toastFadeStart then
         alpha = 1 - ((toast.time - toastFadeStart) / (toastKill - toastFadeStart))
       end
-      lg.setColor(1,1,1,alpha)
 
       if toast.sprite then
         local texture, quad = toast.sprite:get()
         if texture and quad then
           local width, height = toast.sprite:getDimensions()
           local scale = math.floor(font:getHeight() / height + 0.5)
+          local r, g, b = toast.sprite:getColor()
+          lg.setColor(r, g, b, alpha)
           lg.draw(texture, quad, 0, (toastHeight - (height * scale))/2, 0, scale)
           lg.translate(width * scale + (padding/2) * windowManager.scale, 0)
         end
       end
 
+      lg.setColor(1,1,1,alpha)
       lg.print(toast.text, font, 0, (toastHeight - font:getHeight()) / 2)
 
       lg.pop()

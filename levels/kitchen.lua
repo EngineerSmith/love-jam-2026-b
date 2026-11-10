@@ -1,4 +1,6 @@
 local camera = require("s3d:camera")
+local levelManager = require("s3d:levelManager")
+
 local player = require("lj26b:player")
 
 return function(level)
@@ -15,9 +17,12 @@ return function(level)
       player:addToLevel(level)
     end
     level:setPlayer(player)
+    
     local pt = player.transform
     local x, y, z = pt.position[1], pt.position[2], pt.position[3]
-    -- camera.current:lookAt(x + 3, y, z + 1.5, x, y, z + .5)
+    kitchenCamera:lookAt(4, 0, 2, x, y, z + .5)
+    local screenX, screenY = kitchenCamera:project(x, y, z + .5)
+    levelManager.setTransitionPos(screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight())
   end
 
   level.update = function(self, dt)

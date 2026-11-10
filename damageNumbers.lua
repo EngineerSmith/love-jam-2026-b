@@ -44,7 +44,7 @@ manager.draw = function()
       lg.setColor(n.color[1], n.color[2], n.color[3], alpha)
 
       -- TODO [scope questionable] Two tone font (assetManager doesn't support image fonts right now)
-      local font = assetManager.getFont("menu:fonts/RobotoMono-Medium", 10 * windowManager.scale * n.scale)
+      local font = assetManager.getFont("lj26b:fonts/Comic_Neue/ComicNeue-Regular", 10 * windowManager.scale * n.scale)
       lg.print(n.text, font, screenX - font:getWidth(n.text) / 2, screenY)
     end
   end

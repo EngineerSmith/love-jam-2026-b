@@ -18,7 +18,7 @@ newItem("void_peach", {
   name = "Void Peach",
   itemType = "ingredient",
   sprite = sprite.new("lj26b:items/void_peach"),
-  pickupRadius = 0,
+  pickupRadius = 0.4,
 })
 
 newItem("wolf_tuff", {

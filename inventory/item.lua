@@ -21,8 +21,9 @@ item.new = function(id, config)
     itemType = config.itemType or "unknown",
     tooltip = config.tooltip or nil,
     sprite = config.sprite,
+    stats = config.stats,
     pickupRadius = config.pickupRadius or 1.5,
-    collectRadius = config.collectRadius or 0.4,
+    collectRadius = config.collectRadius or 0.1,
     magnetSpeed = config.magnetSpeed or 1.5,
     stackable = true,
   }, item)
@@ -55,6 +56,7 @@ item.clone = function(self, overrideConfig)
     magnetSpeed = overrideConfig.magnetSpeed or self.magnetSpeed,
     stackable = self.stackable,
     time = love.math.random() * 6.28,
+    freeze = 0.75,
   }, item)
   sortId = sortId + 1
 
@@ -66,7 +68,18 @@ item.spawn = function(self, level, position)
   newItem.transform = transform.new()
 
   if type(position) == "table" then
-    newItem.transform:set(unpack(position))
+    local x, y, z = unpack(position)
+    if camera.current then
+      local camX, camY = camera.current.eye[1], camera.current.eye[2]
+
+      local dx, dy = camX - x, camY - y
+      local mag = math.sqrt(dx * dx + dy * dy)
+      if mag > 1e-4 then
+        x = x + (dx / mag) * 0.1
+        y = y + (dy / mag) * 0.1
+      end
+    end
+    newItem.transform:set(x, y, z)
   end
   newItem.currentLevel = level
   level:addCharacter(newItem)
@@ -88,25 +101,28 @@ end
 item.update = function(self, dt)
   if not self.currentLevel then return end
 
+  self.freeze = self.freeze - dt
   self.time = self.time + dt
   local bounce = math.abs(math.sin(self.time * 3)) * .25
 
   local ix, iy = self.transform.position[1], self.transform.position[2]
 
-  local player = self.currentLevel.player
-  if player and player.transform then
-    local px, py = player.transform.position[1], player.transform.position[2]
-    local dx, dy = px - ix, py - iy
-    local magSq = dx * dx + dy * dy
-    if magSq <= (self.collectRadius * self.collectRadius) then
-      if inventory.add(self) then
-        self:removeFromLevel()
+  if self.freeze < 0 then
+    local player = self.currentLevel.player
+    if player and player.transform then
+      local px, py = player.transform.position[1], player.transform.position[2]
+      local dx, dy = px - ix, py - iy
+      local magSq = dx * dx + dy * dy
+      if magSq <= (self.collectRadius * self.collectRadius) then
+        if inventory.add(self) then
+          self:removeFromLevel()
+        end
+      elseif magSq <= (self.pickupRadius * self.pickupRadius) then
+        local mag = math.sqrt(magSq)
+        local ndx, ndy = dx / mag, dy / mag
+        ix = ix + ndx * self.magnetSpeed * dt
+        iy = iy + ndy * self.magnetSpeed * dt
       end
-    elseif magSq <= (self.pickupRadius * self.pickupRadius) then
-      local mag = math.sqrt(magSq)
-      local ndx, ndy = dx / mag, dy / mag
-      ix = ix + ndx * self.magnetSpeed * dt
-      iy = iy + ndy * self.magnetSpeed * dt
     end
   end
 

@@ -9,6 +9,7 @@ controller:registerControl("right", { "key:d", "key:right", "axis:leftx+" })
 controller:registerControl("dodge", { "key:space", "button:a" })
 controller:registerControl("attack", { "mouse:1", "axis:triggerright+" })
 controller:registerControl("inventory", { "key:e", "key:i", "button:back" })
+controller:registerControl("closeInventory", { "key:escape" })
 
 controller:registerControl("kitchen", { "key:tab", "button:y" })
 

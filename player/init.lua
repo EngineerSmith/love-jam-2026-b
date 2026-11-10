@@ -1,7 +1,10 @@
+local logger = LOGGER:extend("player")
 
 local vornmath = require("libs.vornmath")
 
 local sprite = require("src.core.graphicsManager.sprite")
+
+local uiManager = require("menu:uiManager")
 
 local camera = require("s3d:camera")
 local levelManager = require("s3d:levelManager")
@@ -50,32 +53,52 @@ states.move = {
     end
   end,
   update = function(self, char, dt)
-    if controller:pressed("dodge") then
-      if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
-        char:changeState(char.states.dodge)
-        return
-      -- else -- todo bad noise
+    if controller:pressed("inventory") then
+      if uiManager.isInStack("game:menu.inventory") then
+        uiManager.pop("game:menu.inventory")
+        -- logger:info("Closed inventory")
+      else
+        uiManager.push("game:menu.inventory")
+        -- logger:info("Opened inventory")
       end
     end
-    if controller:pressed("attack") then
-      if char.attributes.stamina >= char.attributes.attackStaminaCost then
-        char:changeState(char.states.attack)
-        return
-      -- else -- todo bad noise
-      end
+    local isInventoryOpen = uiManager.isInStack("game:menu.inventory")
+    if isInventoryOpen and controller:pressed("closeInventory") then -- Extra controls, so ecs closes open inventory, but not open it
+      uiManager.pop("game:menu.inventory")
+      -- logger:info("Closed inventory")
+      isInventoryOpen = false
     end
-    if controller:pressed("kitchen") then
-      if char.currentLevel then
-        if char.currentLevel.id == "game:city" then
-          levelManager.setActiveLevel("game:kitchen", .5, .5, "spawn")
-        else
-          levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+
+    if not isInventoryOpen then
+      if controller:pressed("dodge") then
+        if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
+          char:changeState(char.states.dodge)
+          return
+        -- else -- todo bad noise
+        end
+      end
+      if controller:pressed("attack") then
+        if char.attributes.stamina >= char.attributes.attackStaminaCost then
+          char:changeState(char.states.attack)
+          return
+        -- else -- todo bad noise
+        end
+      end
+      if controller:pressed("kitchen") then
+        if char.currentLevel then
+          if char.currentLevel.id == "game:city" then
+            local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
+            local screenX, screenY = camera.current:project(x, y, z + .5)
+            levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
+          else
+            levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+          end
         end
       end
     end
 
     local dx, dy = char:getMovementInput()
-    local isMoving = dx ~= 0 or dy ~= 0
+    local isMoving = (dx ~= 0 or dy ~= 0) and not isInventoryOpen
 
     if isMoving then
       local dirX, dirY = normalize(dx, dy)
@@ -321,6 +344,13 @@ states.stagger = {
   update = function(self, char, dt)
     self.staggerTimer = self.staggerTimer - dt
 
+    if controller:pressed("dodge") then
+      if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
+        char:changeState(char.states.dodge)
+        return
+      end
+    end
+
     if self.sprite and self.sprite.metaUserdata and self.sprite.metaUserdata.flashFrames then
       local isFlash = false
       local currentIndex = self.sprite.frameIndex - 1
@@ -376,8 +406,10 @@ local baseAttributes = {
 local attributes = setmetatable({ }, {
   __index = function(_, modifier)
     if baseAttributes[modifier] then
+      local base = baseAttributes[modifier]
+      if type(base) ~= "number" then return base end
       local mod = inventory.getStatModifiers()[modifier] or 0
-      return baseAttributes[modifier] + mod
+      return base + mod
     end
   end,
   __newindex = baseAttributes,
@@ -450,7 +482,7 @@ player.update = function(self, dt)
     self.attributes.staminaRegenDelay = self.attributes.staminaRegenDelay - dt
   else
     if self.attributes.stamina < self.attributes.maxStamina then
-      self.attributes.stamina = math.min(self.attributes.maxStamina, self.attributes.stamina + self.attributes.attributes.staminaRegenRate * dt)
+      self.attributes.stamina = math.min(self.attributes.maxStamina, self.attributes.stamina + self.attributes.staminaRegenRate * dt)
     end
   end
 end

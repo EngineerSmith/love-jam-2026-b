@@ -14,6 +14,23 @@ local cellSize = 48
 local equipmentHand = sprite.new("lj26b:ui/hand")
 local equipmentJam = sprite.new("lj26b:ui/jam")
 
+local attributeMap = {
+  ["walkSpeed"] = "Move Speed",
+  ["crawlSpeed"] = "Crawl Speed",
+  ["dodgeSpeed"] = "Dodge Speed",
+  ["dodgeDuration"] = "Dodge Duration",
+  ["dodgeCooldown"] = "Dodge Cooldown",
+  ["attackSpeed"] = "Attack Speed",
+  ["attackDuration"] = "Attack Duration",
+  ["maxStamina"] = "Max Stamina",
+  ["staminaRegenRate"] = "Stamina Regen Rate",
+  ["dodgeStaminaCost"] = "Dodge Stamina Cost",
+  ["dodgeStaminaDelay"] = "Dodge Stamina Delay",
+  ["attackStaminaCost"] = "Attack Stamina Cost",
+  ["attackStaminaDelay"] = "Attack Stamina Delay",
+  ["maxHealth"] = "Max Health",
+  ["baseDamage"] = "Damage",
+}
 
 local drawTooltip = function(item)
   local scale = windowManager.scale
@@ -41,7 +58,7 @@ local drawTooltip = function(item)
       if stateName:lower():match("cost") then judgeValue = judgeValue * -1 end
       local sign = value >= 0 and "+" or ""
       table.insert(statLines, {
-        text = ("%s%s %s"):format(sign, tostring(value), stateName),
+        text = ("%s%s %s"):format(sign, tostring(value), attributeMap[stateName] or stateName:sub(1,1):upper() .. stateName:sub(2)),
         positive = judgeValue >= 0,
       })
     end

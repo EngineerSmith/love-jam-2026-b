@@ -44,7 +44,7 @@ newItem("void_jam", {
   itemType = "jam",
   sprite = sprite.new("lj26b:items/void_jam"),
   stats = {
-    damage = 5,
+    baseDamage = 5,
     walkSpeed = 0.1,
   },
 })

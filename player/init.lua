@@ -306,7 +306,8 @@ states.attack = {
               createAttackFilter(self.attackDirection, weapon.range or 1.3, weapon.coneAngle or 120))
           local target = closestList[1]
           if target then
-            if target.char:takeHit(weapon.damage) then
+            local damage = char.attributes.baseDamage + weapon.damage
+            if target.char:takeHit(damage) then
               -- success
             else
               -- failed, e.g. invulnerable tag
@@ -397,6 +398,7 @@ local baseAttributes = {
   staminaRegenRate   = 45,
   dodgeStaminaCost   = 20,
   dodgeStaminaDelay  = 0.6,
+  baseDamage         = 0,
   attackStaminaCost  = 15, -- Move checks to equipment? I guess attacking should have a base cost!
   attackStaminaDelay = 0.4,
   maxHealth          = 100,
@@ -406,7 +408,7 @@ local baseAttributes = {
 local attributes = setmetatable({ }, {
   __index = function(_, modifier)
     if baseAttributes[modifier] then
-      local base = baseAttributes[modifier]
+      local base = baseAttributes[modifier] or 0
       if type(base) ~= "number" then return base end
       local mod = inventory.getStatModifiers()[modifier] or 0
       return base + mod

@@ -68,9 +68,92 @@ inventory.add = function(item, noToast)
   return inventoryAcceptedItem
 end
 
--- What about unequipping?
+inventory.hasItems = function(requiredItems)
+  local availableCounts = { }
+  for _, slot in ipairs(inventory.slots.items) do
+    if slot.item and slot.count > 0 then
+      availableCounts[slot.item.id] = (availableCounts[slot.item.id] or 0) + slot.count
+    end
+  end
+
+  local results = { }
+  for _, requirement in ipairs(requiredItems) do
+    local itemId
+    local requiredCount = 1
+    if type(requirement) == "string" then
+      itemId = requirement
+    elseif type(requirement) == "table" then
+      itemId = requirement[1]
+      requiredCount = requirement.count or 1
+    end
+    local currentStock = availableCounts[itemId] or 0
+    table.insert(results, currentStock >= requiredCount)
+  end
+  return results
+end
+
+-- Jesus I need sleep, this is the worst function I think I've written in a long time
+inventory.consumeItems = function(requiredItems)
+  local neededMap = { }
+  local parsedRequirements = { }
+  for _, requirement in ipairs(requiredItems) do
+    local itemId, count = nil, 1
+    if type(requirement) == "string" then
+      itemId = requirement
+    elseif type(requirement) == "table" then
+      itemId = requirement[1]
+      count = requirement.count or 1
+    end
+    neededMap[itemId] = (neededMap[itemId] or 0) + count
+    table.insert(parsedRequirements, { id = itemId, count = count })
+  end
+
+  local availableMap = { }
+  for id, _ in pairs(neededMap) do
+    availableMap[id] = 0
+  end
+
+  for _, slot in ipairs(inventory.slots.items) do
+    if slot.item and slot.count > 0 then
+      for id, _ in pairs(neededMap) do
+        if slot.item:eq(id) then
+          availableMap[id] = availableMap[id] + slot.count
+        end
+      end
+    end
+  end
+
+  for id, needed in pairs(neededMap) do
+    if (availableMap[id] or 0) < needed then
+      return false
+    end
+  end
+
+  for _, requirement in ipairs(parsedRequirements) do
+    local remainingToRemove = requirement.count
+    local targetId = requirement.id
+    for _, slot in ipairs(inventory.slots.items) do
+      if remainingToRemove > 0 and slot.item and slot.count > 0 and slot.item:eq(targetId) then
+        if slot.count <= remainingToRemove then
+          remainingToRemove = remainingToRemove - slot.count
+          slot.item = nil
+          slot.count = 0
+        else
+          slot.count = slot.count - remainingToRemove
+          remainingToRemove = 0
+        end
+        if remainingToRemove <= 0 then
+          break
+        end
+      end
+    end
+  end
+  return true
+end
+
 inventory.equipItem = function(slotName, inventoryIndex)
   local targetSlot = inventory.slots.equipment[slotName]
+  if slotName == "trash" then targetSlot = inventory.trash end
   if not targetSlot then return false end
 
   local itemToEquip, countToEquip = nil, 1
@@ -82,8 +165,16 @@ inventory.equipItem = function(slotName, inventoryIndex)
   else
     local invSlot = inventory.slots.items[inventoryIndex]
     if not invSlot or not invSlot.item then return false end
-    itemToEquip = invSlot.item
-    countToEquip = invSlot.count
+    if slotName == "trash" then
+      targetSlot.item = invSlot.item
+      targetSlot.count = invSlot.count
+      invSlot.item = nil
+      invSlot.count = 0
+      return
+    else
+      itemToEquip = invSlot.item
+      countToEquip = invSlot.count
+    end
   end
 
   if itemToEquip.itemType ~= targetSlot.slotType then return false end
@@ -129,6 +220,28 @@ end
 inventory.moveEquipItem = function(slotName, otherSlotName)
   local fromSlot = inventory.slots.equipment[slotName]
   local toSlot = inventory.slots.equipment[otherSlotName]
+
+  if slotName == "trash" then
+    fromSlot = inventory.trash
+    if not toSlot.item then
+      toSlot.item = fromSlot.item
+      fromSlot.count = fromSlot.count - 1
+      if fromSlot.count <= 0 then
+        fromSlot.item = nil
+      end
+      return true
+    else
+      if fromSlot.count > 1 then
+        return false
+      end
+      local tempItem = toSlot.item
+      toSlot.item = fromSlot.item
+      fromSlot.item = tempItem
+      fromSlot.slot = 1 -- should already be one, but confirm
+      return true
+    end
+  end
+
   if not fromSlot or not toSlot or not fromSlot.item or fromSlot.slotType ~= toSlot.slotType then return false end
 
   local tempItem = toSlot.item
@@ -138,10 +251,13 @@ end
 
 inventory.unequipItem = function(slotName, inventoryIndex)
   local targetSlot = inventory.slots.equipment[slotName]
+  if slotName == "trash" then
+    targetSlot = inventory.trash
+  end
   local invSlot = inventory.slots.items[inventoryIndex]
   if not targetSlot or not invSlot then return false end
 
-  if targetSlot.item then
+  if invSlot.item then
     return inventory.equipItem(slotName, inventoryIndex)
   end
 
@@ -151,6 +267,7 @@ inventory.unequipItem = function(slotName, inventoryIndex)
       if spaceLeft >= 1 then
         invSlot.count = invSlot.count + 1
         targetSlot.item = nil
+        targetSlot.count = slotName == "trash" and 0 or nil 
         inventory._modifiersDirty = true
         return true
       end
@@ -159,7 +276,7 @@ inventory.unequipItem = function(slotName, inventoryIndex)
   end
 
   invSlot.item = targetSlot.item
-  invSlot.count = 1
+  invSlot.count = targetSlot.count or 1
   targetSlot.item = nil
 
   inventory._modifiersDirty = true

@@ -53,67 +53,84 @@ states.move = {
     end
   end,
   update = function(self, char, dt)
-    if controller:pressed("inventory") then
-      if uiManager.isInStack("game:menu.inventory") then
-        uiManager.pop("game:menu.inventory")
-        -- logger:info("Closed inventory")
-      else
-        uiManager.push("game:menu.inventory")
-        -- logger:info("Opened inventory")
-      end
-    end
-    local isInventoryOpen = uiManager.isInStack("game:menu.inventory")
-    if isInventoryOpen and controller:pressed("closeInventory") then -- Extra controls, so ecs closes open inventory, but not open it
-      uiManager.pop("game:menu.inventory")
-      -- logger:info("Closed inventory")
-      isInventoryOpen = false
-    end
-
-    if not isInventoryOpen then
-      if controller:pressed("dodge") then
-        if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
-          char:changeState(char.states.dodge)
-          return
-        -- else -- todo bad noise
-        end
-      end
-      if controller:pressed("attack") then
-        if char.attributes.stamina >= char.attributes.attackStaminaCost then
-          char:changeState(char.states.attack)
-          return
-        -- else -- todo bad noise
-        end
-      end
-      if controller:pressed("kitchen") then
-        if char.currentLevel then
-          if char.currentLevel.id == "game:city" then
-            local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
-            local screenX, screenY = camera.current:project(x, y, z + .5)
-            levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
+    if not char.isInTransition then
+      if controller:pressed("inventory") then
+        if uiManager.isInStack("game:menu.inventory") then
+          uiManager.pop("game:menu.inventory")
+        elseif uiManager.isInStack("game:menu.cookingPot") then
+          uiManager.pop("game:menu.cookingPot")
+        else
+          if char.currentLevel.id == "game:kitchen" then
+            uiManager.push("game:menu.cookingPot")
           else
-            levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+            uiManager.push("game:menu.inventory")
           end
         end
       end
-    end
-
-    local dx, dy = char:getMovementInput()
-    local isMoving = (dx ~= 0 or dy ~= 0) and not isInventoryOpen
-
-    if isMoving then
-      local dirX, dirY = normalize(dx, dy)
-      char.facing[1], char.facing[2] = dirX, dirY
-
-      if self.motion ~= "moving" then
-        self.motion = "moving"
-        self.sprite:stop(true):seek(1)
-        self.sprite = self.sprites.move:start()
+      local isInventoryOpen = uiManager.isInStack("game:menu.inventory")
+      local isCookingPotOpen = uiManager.isInStack("game:menu.cookingPot")
+      if isInventoryOpen and controller:pressed("closeInventory") then -- Extra controls, so ecs closes open inventory, but not open it
+        uiManager.pop("game:menu.inventory")
+        isInventoryOpen = false
+      end
+      if isCookingPotOpen and controller:pressed("closeInventory") then
+        uiManager.pop("game:menu.cookingPot")
+        isCookingPotOpen = false
       end
 
-      local deltaX = dirX * char.attributes.walkSpeed * dt
-      local deltaY = dirY * char.attributes.walkSpeed * dt
+      if not isInventoryOpen and not isCookingPotOpen then
+        if controller:pressed("dodge") then
+          if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
+            char:changeState("dodge")
+            return
+          -- else -- todo bad noise
+          end
+        end
+        if controller:pressed("attack") then
+          if char.attributes.stamina >= char.attributes.attackStaminaCost then
+            char:changeState("attack")
+            return
+          -- else -- todo bad noise
+          end
+        end
+        if controller:pressed("kitchen") then
+          if char.currentLevel then
+            if char.currentLevel.id == "game:city" then
+              local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
+              local screenX, screenY = camera.current:project(x, y, z + .5)
+              -- levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
+              levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "forest")
+            elseif char.currentLevel.id == "game:kitchen" then
+              levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+            end
+          end
+        end
+      end
 
-      char:moveTowardsDelta(deltaX, deltaY)
+      local dx, dy = char:getMovementInput()
+      local isMoving = (dx ~= 0 or dy ~= 0) and not isInventoryOpen and not isCookingPotOpen
+
+      if isMoving then
+        local dirX, dirY = normalize(dx, dy)
+        char.facing[1], char.facing[2] = dirX, dirY
+
+        if self.motion ~= "moving" then
+          self.motion = "moving"
+          self.sprite:stop(true):seek(1)
+          self.sprite = self.sprites.move:start()
+        end
+
+        local deltaX = dirX * char.attributes.walkSpeed * dt
+        local deltaY = dirY * char.attributes.walkSpeed * dt
+
+        char:moveTowardsDelta(deltaX, deltaY)
+      else
+        if self.motion == "moving" then
+          self.motion = "idle"
+          self.sprite:stop(true):seek(1)
+          self.sprite = self.sprites.idle:start(self.onIdleFinish)
+        end
+      end
     else
       if self.motion == "moving" then
         self.motion = "idle"
@@ -203,12 +220,12 @@ states.dodge = {
           return
         else
           char.attributes.invulnerable = false
-          char:changeState(char.states.move)
+          char:changeState("move")
           return
         end
       else
         char.attributes.invulnerable = false
-        char:changeState(char.states.move)
+        char:changeState("move")
         return
       end
     end
@@ -285,7 +302,7 @@ states.attack = {
   update = function(self, char, dt)
     self.attackTimer = self.attackTimer - dt
     if self.attackTimer <= 0 then
-      char:changeState(char.states.move)
+      char:changeState("move")
       return
     end
 
@@ -347,7 +364,7 @@ states.stagger = {
 
     if controller:pressed("dodge") then
       if char.attributes.stamina >= char.attributes.dodgeStaminaCost then
-        char:changeState(char.states.dodge)
+        char:changeState("dodge")
         return
       end
     end
@@ -381,7 +398,7 @@ states.stagger = {
 
     -- Prevent possible future invul bugs if the animation stops somehow
     if self.staggerTimer <= 0 or not self.sprite.isPlaying then
-      char:changeState(char.states.move)
+      char:changeState("move")
     end
   end,
 }

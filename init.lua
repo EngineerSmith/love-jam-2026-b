@@ -14,6 +14,7 @@ local inventory = require(":inventory")
 
 levelManager.addLevelModifier("game:city", "lj26b:levels.city")
 levelManager.addLevelModifier("game:kitchen", "lj26b:levels.kitchen")
+levelManager.addLevelModifier("game:dungeon", "lj26b:levels.dungeon")
 
 CONTEXT.hook("load", function(scene)
   if scene == "init" then

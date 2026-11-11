@@ -1,17 +1,30 @@
 
 local sprite = require("src.core.graphicsManager.sprite")
 
-local item = require(":inventory.item")
+local item = require("lj26b:inventory.item")
 
-local itemDefinitions = { }
+local itemDefinitions = {
+  recipes = { },
+}
 
 local newItem = function(id, config)
+  if id == "recipes" then error() end
   itemDefinitions[id] = item.new(id, config)
   return itemDefinitions[id]
 end
 
-local newJamRecipe = function(from, to)
-  -- TODO
+local newJamRecipe = function(from, to, config)
+  config = config or { }
+
+  local recipe = {
+    from = from,
+    to = to,
+    unlocked = true,
+  }
+  if config.unlocked ~= nil then
+    recipe.unlocked = config.unlocked
+  end
+  table.insert(itemDefinitions.recipes, recipe)
 end
 
 newItem("void_peach", {
@@ -47,6 +60,7 @@ newItem("void_jam", {
     baseDamage = 5,
     walkSpeed = 0.1,
   },
+  stackable = false,
 })
 
 newItem("stringy_jam", {
@@ -58,6 +72,7 @@ newItem("stringy_jam", {
     walkSpeed = 0.8,
     dodgeStaminaCost = -2,
   },
+  stackable = false,
 })
 
 newItem("stick", {
@@ -74,7 +89,7 @@ newItem("stick", {
   stackable = false,
 })
 
-newJamRecipe({ "void_peach", "slime_jelly" }, "void_jam")
-newJamRecipe({ "wolf_tuff", "slime_jelly" }, "stringy_jam")
+newJamRecipe({ { "void_peach", count = 3 }, "slime_jelly" }, "void_jam")
+newJamRecipe({ { "wolf_tuff", count = 3 }, "slime_jelly" }, "stringy_jam")
 
 return itemDefinitions

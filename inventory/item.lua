@@ -6,7 +6,7 @@ local transform = require("s3d:transform")
 local characterPlane = require("s3d:characterPlane")
 local camera = require("s3d:camera")
 
-local inventory = require(":inventory")
+local inventory = require("lj26b:inventory")
 
 local item = {
   -- _levelIgnore = true
@@ -50,21 +50,31 @@ item.clone = function(self, overrideConfig)
     itemType = self.itemType,
     tooltip = self.tooltip,
     sprite = self.sprite,
-    stats = self.stats,
     pickupRadius = overrideConfig.pickupRadius or self.pickupRadius,
     collectRadius = overrideConfig.collectRadius or self.collectRadius,
     magnetSpeed = overrideConfig.magnetSpeed or self.magnetSpeed,
     stackable = self.stackable,
     time = love.math.random() * 6.28,
-    freeze = 0.75,
+    freeze = overrideConfig.freezeTime or 0.75,
+    isJumping = overrideConfig.isJumping or false,
   }, item)
   sortId = sortId + 1
+
+  if self.stats then
+    clone.stats = { }
+    for statName, value in pairs(self.stats) do
+      if overrideConfig.stats and overrideConfig.stats[statName] then
+        value = overrideConfig.stats[statName]
+      end
+      clone.stats[statName] = value
+    end
+  end
 
   return clone
 end
 
-item.spawn = function(self, level, position)
-  local newItem = self:clone()
+item.spawn = function(self, level, position, overrideConfig)
+  local newItem = self:clone(overrideConfig)
   newItem.transform = transform.new()
 
   if type(position) == "table" then
@@ -83,6 +93,7 @@ item.spawn = function(self, level, position)
   end
   newItem.currentLevel = level
   level:addCharacter(newItem)
+  return newItem
 end
 
 item.removeFromLevel = function(self)
@@ -103,9 +114,8 @@ item.update = function(self, dt)
 
   self.freeze = self.freeze - dt
   self.time = self.time + dt
-  local bounce = math.abs(math.sin(self.time * 3)) * .25
 
-  local ix, iy = self.transform.position[1], self.transform.position[2]
+  local ix, iy, iz = self.transform.position[1], self.transform.position[2], self.transform.position[3]
 
   if self.freeze < 0 then
     local player = self.currentLevel.player
@@ -126,7 +136,12 @@ item.update = function(self, dt)
     end
   end
 
-  self.transform:set(ix, iy, bounce)
+  if self.isJumping then
+    self.transform:set(ix, iy, iz)
+  else
+    local bounce = math.abs(math.sin(self.time * 3)) * .25
+    self.transform:set(ix, iy, bounce)
+  end
 end
 
 item.getPlaneDirection = function(self)
@@ -135,7 +150,6 @@ item.getPlaneDirection = function(self)
   local toCamX = ce[1] - pp[1]
   local toCamY = ce[2] - pp[2]
 
-  -- TODO validate correct view angle
   if math.abs(toCamX) >= math.abs(toCamY) then
     return toCamX > 0 and "x-" or "x+"
   else

@@ -2,6 +2,7 @@ local lg = love.graphics
 
 local assetManager = require("src.core.assetManager")
 local windowManager = require("src.core.windowManager")
+local graphicsManager = require("src.core.graphicsManager")
 local sprite = require("src.core.graphicsManager.sprite")
 
 local inventory = require("lj26b:inventory")
@@ -13,6 +14,7 @@ local cellSize = 48
 
 local equipmentHand = sprite.new("lj26b:ui/hand")
 local equipmentJam = sprite.new("lj26b:ui/jam")
+local equipmentTrash = sprite.new("lj26b:ui/trash")
 
 local attributeMap = {
   ["walkSpeed"] = "Move Speed",
@@ -157,6 +159,79 @@ local drawTooltip = function(item)
   lg.pop()
 end
 
+local updateScrollPhysics = function(node, dt)
+  if not node.state.scrollable then return end
+  if not node.w or not node.h or not node.contentH then return end
+
+  node.state.scrollY = node.state.scrollY or 0
+  if node.h > node.contentH then
+    node.state.scrollY = 0
+    return
+  end
+
+  local innerH = node.h
+  local maxScroll = math.max(0, (node.contentH or 0) - innerH)
+
+  if not node.state.isDragging then
+    if node.state.scrollY < 0 then
+      node.state.scrollY = node.state.scrollY + (0 - node.state.scrollY) * math.min(1, dt * 15)
+    elseif node.state.scrollY > maxScroll then
+      node.state.scrollY = node.state.scrollY + (maxScroll - node.state.scrollY) * math.min(1, dt * 15)
+    end
+  end
+end
+
+local drawThumb = function(node)
+  if not node.state.scrollable then return end
+  if not node.w or not node.h then return end
+  if node.h >= (node.contentH or 0) then return end
+
+  local scale = windowManager.scale
+  local padX, padY = -4 * scale, 2 * scale -- Note future me, negative pad could lead to drawing outside of bounds. So, just give the scrollable's parent padding
+  local width = 3.5 * scale
+
+  local innerH = node.h
+  local contentH = node.contentH
+  local trackH = innerH - (padY * 2)
+
+  local ratio = innerH / contentH
+  local baseThumbH = math.max(16 * scale, trackH * ratio)
+
+  local maxScroll = math.max(0, contentH - innerH)
+  local scrollY = node.state.scrollY or 0
+
+  local thumbH = baseThumbH
+  local thumbX = node.x + node.w - padX - width
+  local thumbY = node.y + padY
+
+  if scrollY < 0 then
+    local overScroll = -scrollY
+    local squish = math.min(baseThumbH * 0.6, overScroll * 0.4)
+    thumbH = math.max(6 * scale, baseThumbH - squish)
+  elseif scrollY > maxScroll then
+    local overScroll = scrollY - maxScroll
+    local squish = math.min(baseThumbH * 0.6, overScroll * 0.4)
+    thumbH = math.max(6 * scale, baseThumbH - squish)
+    thumbY = thumbY + trackH - thumbH
+  else
+    local maxTravel = trackH - baseThumbH
+    local scrollFriction = maxScroll > 0 and scrollY / maxScroll or 0
+    thumbY = thumbY + (scrollFriction * maxTravel)
+  end
+
+  lg.push("all")
+
+  -- track
+  lg.setColor(.6,.6,.6, node.state.isHovered and .4 or .2)
+  lg.rectangle("fill", thumbX, node.y + padY, width, trackH, width / 2)
+
+  -- thumb
+  lg.setColor(.8,.8,.8, node.state.isHovered and .6 or .5)
+  lg.rectangle("fill", thumbX, thumbY, width, thumbH, width / 2)
+
+  lg.pop()
+end
+
 local theme = {
   container = {
     inventory_window = {
@@ -180,38 +255,164 @@ local theme = {
         lg.pop()
       end,
     },
+    stencil = {
+      update = function(node, dt)
+        updateScrollPhysics(node, dt)
+      end,
+      draw = function(node)
+        lg.push("all")
+        graphicsManager.incrementStencilDepth()
+        lg.setStencilState("increment", "always")
+
+        graphicsManager.setColorMaskRGBA(false)
+        lg.rectangle("fill", node.x, node.y, node.w, node.h)
+        graphicsManager.setColorMaskRGBA(true)
+
+        lg.push("all")
+        lg.setStencilState("keep", "gequal", graphicsManager.stencilDepth)
+      end,
+      drawAfterChildren = function(node)
+        lg.pop()
+
+        graphicsManager.decrementStencilDepth()
+        lg.setStencilState("decrement", "always")
+
+        graphicsManager.setColorMaskRGBA(false)
+        lg.rectangle("fill", node.x, node.y, node.w, node.h)
+        graphicsManager.setColorMaskRGBA(true)
+
+        lg.pop()
+
+        drawThumb(node)
+      end,
+    },
+    displayCell = {
+      measure = function(node)
+        local scale = windowManager.scale
+        return cellSize * scale, cellSize * scale
+      end,
+      draw = function(node, scene)
+        local scale = windowManager.scale
+        local lineWidth = math.floor(1 * scale)
+
+        lg.push("all")
+        lg.setColor(.1,.3,.4,.4)
+        if scene._heldNode then
+          lg.setColor(.05,.2,.3,.5)
+          if node.state.isHovered then
+            lg.setColor(.3,.1,.1,.75)
+          end
+        end
+        lg.rectangle("fill", node.x, node.y, node.w, node.h, 3 * scale)
+
+        lg.setColor(.4, .6, .7, 1)
+        lg.setLineWidth(lineWidth)
+        lg.rectangle("line", node.x, node.y, node.w, node.h, 3 * scale)
+
+        if node.state.item then
+          local item = node.state.item
+          local count = node.state.itemCount or 1
+          if item.sprite then
+            local sprite = item.sprite
+            local texture, quad = sprite:get()
+            if texture and quad then
+              local w, h = sprite:getDimensions()
+              if w > 0 and h > 0 then
+                local padding = 6 * scale
+                local maxW = node.w - (padding * 2)
+                local maxH = node.h - (padding * 2)
+                local spriteScale = math.min(maxW / w, maxH / h)
+                local scaledW = w * spriteScale
+                local scaledH = h * spriteScale
+                local drawX = node.x + (node.w - scaledW) / 2
+                local drawY = node.y + (node.h - scaledH) / 2
+                lg.setColor(1,1,1,1)
+                if node.state.isMissing then
+                  lg.setColor(0, 0, 0, .4 * (type(node.state.isMissing) == "number" and node.state.isMissing or 1))
+                end
+                lg.draw(texture, quad, drawX, drawY, 0, spriteScale, spriteScale)
+                if count > 1 then
+                  lg.setColor(1,1,1,1)
+                  local font = assetManager.getFont(fontKeyBold, 12 * scale)
+                  local text = tostring(count)
+                  lg.print(text, font, drawX, drawY)
+                end
+              end
+            end
+          end
+        end
+        lg.pop()
+      end,
+    }
   },
   label = {
+    button = {
+      measure = function(node)
+        local scale = windowManager.scale
+        local font = assetManager.getFont(fontKey, 14 * scale)
+        local text = node.state.text or "unknown"
+
+        local w = font:getWidth(text) + 10 * scale
+        local h = font:getHeight() + 2 * scale
+        return w, h
+      end,
+      draw = function(node)
+        local scale = windowManager.scale
+
+        local scale = windowManager.scale
+        local font = assetManager.getFont(fontKey, 14 * scale)
+        local text = node.state.text or "unknown"
+
+        lg.push("all")
+        lg.translate(node.x, node.y)
+
+        lg.setColor(.2,.4,.5,1)
+        if node.state.color then
+          lg.setColor(node.state.color)
+        end
+        lg.rectangle("fill", 0, 0, node.w, node.h, 3 * scale)
+
+        lg.setColor(1, 1,1, 1)
+        lg.print(text, font, (node.w-font:getWidth(text)) / 2, (node.h-font:getHeight())/2)
+
+        lg.pop()
+      end,
+    },
     inventory = {
       measure = function(node)
         local scale = windowManager.scale
-        local fontSize = 23 * scale
-        local font = assetManager.getFont(fontKey, fontSize)
+        local fontSize = (node.state.fontSize or 23) * scale
+        local key = node.state.bold and fontKeyBold or fontKey
+        local font = assetManager.getFont(key, fontSize)
         local text = node.state.text or ""
 
-        if not font then return 0, 0 end
+        if not font or not text or text == "" then return 0, 0 end
         if not node.state.wrap or not node.lastW then
           return font:getWidth(text), font:getHeight()
         else
-          local width, wrappedText = font:getWrap(text, node.lastW)
+          local width, wrappedText = font:getWrap(text, node.lastW + 10 * scale)
           return width, #wrappedText * (font:getHeight() + font:getLineHeight())
         end
       end,
       draw = function(node)
         local scale = windowManager.scale
-        local fontSize = 23 * scale
-        local font = assetManager.getFont(fontKey, fontSize)
+        local fontSize = (node.state.fontSize or 23) * scale
+        local key = node.state.bold and fontKeyBold or fontKey
+        local font = assetManager.getFont(key, fontSize)
         local text = node.state.text or ""
 
-        if not font then return end
+        if not font or not text or text == "" then return end
 
         lg.push("all")
         lg.translate(node.x + node.w / 2, node.y + node.h / 2)
         lg.setColor(1,1,1,1)
+        if node.state.color then
+          lg.setColor(node.state.color)
+        end
         if node.state.wrap then
           local _, wrappedText = font:getWrap(text, node.w)
-          for i, text in ipairs(wrappedText) do
-            lg.print(text, font, -node.w /2 , (i - 1) * (font:getHeight() + font:getLineHeight()) - node.h / 2)
+          for i, line in ipairs(wrappedText) do
+            lg.print(line, font, -font:getWidth(line)/2, (i - 1) * (font:getHeight() + font:getLineHeight()) - node.h / 2)
           end
         else
           lg.print(text, font, -font:getWidth(text)/2, -font:getHeight()/2)
@@ -335,6 +536,9 @@ local theme = {
         lg.rectangle("line", node.x, node.y, node.w, node.h, 3 * scale)
 
         local slot = inventory.slots.equipment[node.state.equipment]
+        if node.state.equipment == "trash" then
+          slot = inventory.trash
+        end
 
         if slot then
           local sprite
@@ -343,6 +547,8 @@ local theme = {
           else
             if node.state.equipment == "hand" then
               sprite = equipmentHand
+            elseif node.state.equipment == "trash" then
+              sprite = equipmentTrash
             elseif node.state.equipment:match("^jam") then
               sprite = equipmentJam
             end
@@ -373,7 +579,10 @@ local theme = {
       end,
       drawAfterEverything = function(node)
         local slot = inventory.slots.equipment[node.state.equipment]
-        if not slot and not slot.item then return end
+        if node.state.equipment == "trash" then
+          slot = inventory.trash
+        end
+        if not slot or not slot.item then return end
         if not node.state.isHeld then
           if node.state.isHovered and slot.item then
             drawTooltip(slot.item)
@@ -401,6 +610,25 @@ local theme = {
             lg.draw(texture, quad, drawX, drawY, 0, spriteScale, spriteScale)
           end
         end
+        lg.pop()
+      end
+    },
+  },
+  recipe = {
+    default = {
+      draw = function(node)
+        local scale = windowManager.scale
+        local lineWidth = math.floor(1 * scale)
+
+        lg.push("all")
+        lg.setColor(.2,.4,.5,1)
+        if node.state.active == false then
+          lg.setColor(.1,.2,.3,1)
+        elseif node.state.isHovered then
+          lg.setColor(.4, .6, .8, 1)
+        end
+        lg.setLineWidth(lineWidth)
+        lg.rectangle("line", node.x, node.y, node.w, node.h, 3 * scale)
         lg.pop()
       end
     },

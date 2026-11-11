@@ -85,6 +85,9 @@ character.getSpriteResourceKeys = function(self, outKeys, inMap)
 end
 
 character.changeState = function(self, newState)
+  if type(newState) == "string" then
+    newState = self.states[newState]
+  end
   if self.currentState then
     self.currentState:exit(self)
   end

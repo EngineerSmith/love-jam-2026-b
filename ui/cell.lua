@@ -12,6 +12,9 @@ local cell = {
 cell.canBeHeld = function(node)
   if node.state.equipment then
     local slot = inventory.slots.equipment[node.state.equipment]
+    if node.state.equipment == "trash" then
+      slot = inventory.trash 
+    end
     return slot and slot.item
   end
   local slot = inventory.slots.items[node.state.slotIndex]
@@ -54,14 +57,21 @@ cell.releasedOn = function(node, scene)
     local fromSlot = other.state.equipment
     local toSlot = node.state.equipment
     if fromSlot and toSlot then
-      inventory.moveEquipItem(fromSlot, toSlot)
+      if toSlot == "trash" then
+        inventory.trashEquipmentSlot(fromSlot)
+      else
+        inventory.moveEquipItem(fromSlot, toSlot)
+      end
       return
     end
   end
 
   if fromSlot then
     local equipSlot = node.state.equipment
-    if fromSlot and equipSlot then
+    if equipSlot == "trash" then
+      inventory.trashInventorySlot(fromSlot)
+      return
+    elseif equipSlot then
       inventory.equipItem(equipSlot, fromSlot)
       return
     end
@@ -69,8 +79,10 @@ cell.releasedOn = function(node, scene)
 
   if toSlot then
     local equipSlot = other.state.equipment
-    if equipSlot and toSlot then
-      print("hit")
+    if equipSlot == "trash" then
+      inventory.moveInventorySlot(equipSlot, toSlot)
+      return
+    elseif equipSlot then
       inventory.unequipItem(equipSlot, toSlot)
       return
     end

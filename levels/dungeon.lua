@@ -4,6 +4,8 @@ local logger = LOGGER:extend("level"):extend("dungeon", "bright_yellow")
 
 local vornmath = require("libs.vornmath")
 
+local graphicsManager = require("src.core.graphicsManager")
+
 local camera = require("s3d:camera")
 local transform = require("s3d:transform")
 local levelManager = require("s3d:levelManager")
@@ -54,7 +56,32 @@ local setLevelForFlag = function(level, flag)
   if flag == "forest" then
     level:setLightPreset("noon")
   else
-    level:setLightPreset("midnight")
+    -- level:setLightPreset("midnight")
+    -- level:setLight(
+    --   { 0.20, 0.30, -0.80 },
+    --   { 0.35, 0.40,  0.50 },
+    --   { 0.15, 0.16,  0.20 }
+    -- )
+    -- level:setLight(
+    --   { 0.00, 0.00, -1.00 },
+    --   { 0.5, 0.35, 0.20 },
+    --   { .18, .14, .10 }
+    -- )
+    level:setLight(
+      { 0.20, 0.30, 0.80 },
+      { 0.70, 0.75,  0.85 },
+      { 0.30, 0.32,  0.38 }
+    )
+    -- level:setLight(
+    --   { 0.00, 0.00, -1.00 },
+    --   { 0.80, 0.55, 0.30 },
+    --   { .35, .25, .18 }
+    -- )
+    -- level:setLight(
+    --   { 0.20, 0.30, 0.80 },
+    --   { 1.10, 1.15,  1.25 },
+    --   { 0.50, 0.52,  0.60 }
+    -- )
   end
 end
 
@@ -156,6 +183,23 @@ local generateDungeon = function(level, roomTemplates, rng)
     return nil
   end
 
+  local tryPlaceAnyRoomFromPool = function(pool, targetSocket, rng)
+    if #pool == 0 then return nil end
+
+    local indices = { }
+    for i = 1, #pool do indices[i] = i end
+    for i = #indices, 2, -1 do
+      local j = rng:random(i)
+      indices[i], indices[j] = indices[j], indices[i]
+    end
+
+    for _, index in ipairs(indices) do
+      local placedResult = tryPlaceSpecificRoom(pool[index], targetSocket)
+      if placedResult then return placedResult end
+    end
+    return nil
+  end
+
   if #roomTemplates.entrance == 0 then
     logger:warning("No entrance room templates found!")
     return layoutNodes
@@ -194,7 +238,7 @@ local generateDungeon = function(level, roomTemplates, rng)
     end
   end
 
-  local targetNormalCount = #roomTemplates.normal > 0 and math.min(rng:random(3, 4), math.max(1, #roomTemplates.normal * 2)) or 0
+  local targetNormalCount = #roomTemplates.normal > 0 and math.min(rng:random(4, 7), math.max(1, #roomTemplates.normal * 2)) or 0
   local currentNormalPlaced = 0
 
   while currentNormalPlaced < targetNormalCount and #roomTemplates.normal > 0 do
@@ -279,20 +323,20 @@ local generateDungeon = function(level, roomTemplates, rng)
     end
   end
 
+  local openSocketsCount = 0
   for _, branchSocket in ipairs(branchSockets) do
     local offshootLength = rng:random(1, 2)
     if offshootLength == 1 then
-      if #roomTemplates.deadEnd > 0 then
-        local deadEndRoom = roomTemplates.deadEnd[rng:random(#roomTemplates.deadEnd)]
-        local placedResult = tryPlaceSpecificRoom(deadEndRoom, branchSocket)
-        if placedResult then
-          table.insert(layoutNodes, {
-            template = placedResult.template,
-            transform = placedResult.transform,
-            rotation = placedResult.rotation,
-          })
-          table.insert(placedBoxes, placedResult.box)
-        end
+      local placedResult = tryPlaceAnyRoomFromPool(roomTemplates.deadEnd, branchSocket, rng)
+      if placedResult then
+        table.insert(layoutNodes, {
+          template = placedResult.template,
+          transform = placedResult.transform,
+          rotation = placedResult.rotation,
+        })
+        table.insert(placedBoxes, placedResult.box)
+      else
+        openSocketsCount = openSocketsCount + 1
       end
     else
       if #roomTemplates.normal > 0 and #roomTemplates.deadEnd > 0 then
@@ -307,8 +351,7 @@ local generateDungeon = function(level, roomTemplates, rng)
           table.insert(placedBoxes, placedNormal.box)
           -- Cap remaining sockets
           for _, normalSock in ipairs(placedNormal.sockets) do
-            local deadEndRoom = roomTemplates.deadEnd[rng:random(#roomTemplates.deadEnd)]
-            local placedResult = tryPlaceSpecificRoom(deadEndRoom, normalSock)
+            local placedResult = tryPlaceAnyRoomFromPool(roomTemplates.deadEnd, normalSock, rng)
             if placedResult then
               table.insert(layoutNodes, {
                 template = placedResult.template,
@@ -316,12 +359,13 @@ local generateDungeon = function(level, roomTemplates, rng)
                 rotation = placedResult.rotation,
               })
               table.insert(placedBoxes, placedResult.box)
+            else
+              openSocketsCount = openSocketsCount + 1
             end
           end
         else
           if #roomTemplates.deadEnd > 0 then
-            local deadEndRoom = roomTemplates.deadEnd[rng:random(#roomTemplates.deadEnd)]
-            local placedResult = tryPlaceSpecificRoom(deadEndRoom, branchSocket)
+            local placedResult = tryPlaceAnyRoomFromPool(roomTemplates.deadEnd, branchSocket, rng)
             if placedResult then
               table.insert(layoutNodes, {
                 template = placedResult.template,
@@ -329,12 +373,13 @@ local generateDungeon = function(level, roomTemplates, rng)
                 rotation = placedResult.rotation,
               })
               table.insert(placedBoxes, placedResult.box)
+            else
+              openSocketsCount = openSocketsCount + 1
             end
           end
         end
       elseif #roomTemplates.deadEnd > 0 then
-        local deadEndRoom = roomTemplates.deadEnd[rng:random(#roomTemplates.deadEnd)]
-        local placedResult = tryPlaceSpecificRoom(deadEndRoom, branchSocket)
+        local placedResult = tryPlaceAnyRoomFromPool(roomTemplates.deadEnd, branchSocket, rng)
         if placedResult then
           table.insert(layoutNodes, {
             template = placedResult.template,
@@ -342,14 +387,22 @@ local generateDungeon = function(level, roomTemplates, rng)
             rotation = placedResult.rotation,
           })
           table.insert(placedBoxes, placedResult.box)
+        else
+          openSocketsCount = openSocketsCount + 1
         end
+      else
+        openSocketsCount = openSocketsCount + 1
       end
     end
   end
-  return layoutNodes, placedBoxes
+
+  return layoutNodes, placedBoxes, openSocketsCount, #branchSockets
 end
 
 return function(level, flag)
+
+  level.modelShader = "s3d:caveShader"
+  graphicsManager.loadShader(level.modelShader)
 
   level.deactivate = function()
     levelManager._levels[level.id] = nil
@@ -367,28 +420,66 @@ return function(level, flag)
     local roomTemplates = getRoomTemplates(filepath, rawRequire .. ".")
     local rng = love.math.newRandomGenerator(love.math.random(0, 2^32 - 1), love.math.random(0, 2^32 - 1))
 
-    local layout, boxes
+    local hasExcessiveConsecutiveRooms = function(layout, maxRepeats)
+      local currentTemplate, count = nil, 0
+      for _, room in ipairs(layout) do
+        if room.template == currentTemplate then
+          count = count + 1
+          if count > maxRepeats then
+            return true
+          end
+        else
+          currentTemplate = room.template
+          count = 1
+        end
+      end
+      return false
+    end
+
+    local layout, boxes, openSockets, numBranches
     local attempts = 0
     local limit = 1000
     while true do
       attempts = attempts + 1
-      layout, boxes = generateDungeon(level, roomTemplates, rng)
+      layout, boxes, openSockets, numBranches = generateDungeon(level, roomTemplates, rng)
       local hasSpawn, hasExit = false, false
       for _, room in ipairs(layout) do
         hasSpawn, hasExit = hasSpawn or room.isSpawn, hasExit or room.isExit
       end
-      if (hasSpawn and hasExit) or attempts == limit + 1 then
+      local hasRepeats = hasExcessiveConsecutiveRooms(layout, 4)
+      if (hasSpawn and hasExit and openSockets == 0 and not hasRepeats and numBranches ~= 0) or attempts == limit + 1 then
         break
+      else
+        local reason
+        if not hasSpawn or not hasExit then
+          reason = (reason and reason .. " & " or "") .. "Missing flag: "..(not hasSpawn and "SPAWN" or "") .. (not hasSpawn and not hasExit and " and " or "") .. (not hasExit and "EXIT" or "")
+        end
+        if openSockets ~= 0 then
+          reason = (reason and reason .. " & " or "") .. "Sockets left open: " .. tostring(openSockets)
+        end
+        if hasRepeats then
+          reason = (reason and reason .. " & " or "") .. "Found repeats"
+        end
+        if numBranches == 0 then
+          reason = (reason and reason .. " & " or "") .. "Has no branches"
+        end
+        if reason then
+          logger:info("Failed layout, reason:", reason)
+        end
       end
     end
-    if attempts == limit then
+    if attempts > limit then
       logger:error("Reached max attempts while generating dungeon. Tell a programmer that they're dumb. Optionally, the one who wrote this code")
       error(); return
     end
 
     level.boxes = boxes
+
     for i, room in ipairs(layout) do
-      local r = room.template.build(level, room.transform, rng)
+      local roomId = tostring(i)
+      local r = room.template.build(level, room.transform, rng, roomId)
+      r.roomId = roomId
+
       r.isSpawn = room.isSpawn
       r.isExit = room.isExit
       local tp = room.transform.position
@@ -402,8 +493,8 @@ return function(level, flag)
         end
       elseif r.isExit then
         level.boxes[i].isExit = true
-        if r.flags and r.flags.exit then
-          local pos = r.flags.exit
+        if r.flags.exit and r.flags.exit.position then
+          local pos = r.flags.exit.position
           level:addFlag("exit", { tp[1] + pos[1], tp[2] + pos[2], tp[3] + pos[3] })
         else
           level:addFlag("exit", { unpack(tp, 1, 3) })
@@ -414,6 +505,14 @@ return function(level, flag)
     logger:info(("Created dungeon[%s] with %d rooms, took %d attempts"):format(flag, #rooms, attempts))
   end
 
+  local wolf = require("lj26b:entities.wolf")
+  local slime = require("lj26b:entities.slime")
+  level.getResourceKeys = function(_, outKeys, inMap)
+    wolf:getSpriteResourceKeys(outKeys, inMap)
+    slime:getSpriteResourceKeys(outKeys, inMap)
+  end
+
+  local closedGate, gateTimer, startColor
   level.active = function(level, flag)
     dungeonCamera:setCurrent()
     dungeonCamera:setAspectRatio(love.graphics.getDimensions())
@@ -421,7 +520,8 @@ return function(level, flag)
     player.transform:scaleBy(1,1,1)
     player.isInTransition = false
 
-    player:addToLevel(level, level:getFlag("spawn"))
+    local spawn = level:getFlag("spawn")
+    player:addToLevel(level, spawn)
     level:setPlayer(player)
 
     for _, room in ipairs(rooms) do
@@ -447,7 +547,18 @@ return function(level, flag)
 
   local lg = love.graphics
   level.draw = function(...)
+    local s = graphicsManager.getShader(level.modelShader)
+    if s then
+      local c = camera.current
+      local p = { unpack(level.player.transform.position, 1, 3)}
+      p[3] = p[3] + .5
+      graphicsManager.setUniform(s, "u_CameraPosition", c.eye)
+      graphicsManager.setUniform(s, "u_PlayerPosition", p)
+      graphicsManager.setUniform(s, "u_OcclusionRadius", 1.7)
+    end
+
     getmetatable(level).draw(...)
+
     if not level.boxes or false then return end
     lg.push("all")
     lg.reset(); lg.origin()

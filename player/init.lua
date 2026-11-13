@@ -99,7 +99,7 @@ states.move = {
               local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
               local screenX, screenY = camera.current:project(x, y, z + .5)
               -- levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
-              levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "forest")
+              levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "cave")
             elseif char.currentLevel.id == "game:kitchen" then
               levelManager.setActiveLevel("game:city", .5, .5, "spawn")
             end
@@ -341,10 +341,9 @@ states.attack = {
   end,
 }
 
--- TODO player should be able to crawl away during stagger
 states.stagger = {
   sprites = {
-    hit = sprite.new("lj26b:characters/dummy/Hit_Side"),
+    hit = sprite.new("lj26b:characters/player/Stagger_Side"),
   },
   enter = function(self, char)
     self.staggerTimer = 0.35

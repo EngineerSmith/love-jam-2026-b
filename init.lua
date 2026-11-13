@@ -12,6 +12,9 @@ end
 local player = require(":player")
 local inventory = require(":inventory")
 
+require(":levels.city")
+require(":levels.kitchen")
+require(":levels.dungeon")
 levelManager.addLevelModifier("game:city", "lj26b:levels.city")
 levelManager.addLevelModifier("game:kitchen", "lj26b:levels.kitchen")
 levelManager.addLevelModifier("game:dungeon", "lj26b:levels.dungeon")

@@ -6,7 +6,7 @@ local character = require("lj26b:character")
 local itemDefinitions = require(":inventory.itemDefinitions")
 
 local wolfBrain = function(char, dt)
-  if char.currentState == char.states.stagger then return end
+  if char.currentState == char.states.stagger or char.currentState == char.states.death then return end
   if not char.currentLevel or not char.currentLevel.player then return end
 
   local player = char.currentLevel.player
@@ -232,7 +232,7 @@ states.death = {
 }
 
 local wolf = character.new({
-  shape = require("libs.slick").newCircleShape(0, 0, .35),
+  shape = require("libs.slick").newCircleShape(0, 0, .4),
   states = states,
   defaultState = "idle",
   brain = wolfBrain,

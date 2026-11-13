@@ -1,4 +1,6 @@
-local baseRoom = { }
+local baseRoom = {
+  flags = { },
+}
 baseRoom.__index = baseRoom
 
 baseRoom.newRoom = function()

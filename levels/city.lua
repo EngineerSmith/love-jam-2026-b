@@ -23,6 +23,8 @@ return function(level)
   level.active = function(_, flag)
     cityCamera:setCurrent()
     cityCamera:setAspectRatio(love.graphics.getDimensions())
+    player.transform:scaleBy(1, 1, 1)
+    player.isInTransition = false
     if flag then -- Player overrides "addtoLevel" to define it's default state on new level
       player:addToLevel(level, level:getFlag(flag))
     else
@@ -87,7 +89,7 @@ return function(level)
     if t >= 12 then
       if not g then
         g = gate.new(level, -1, 2, 0)
-        g:setTo("game:dungeon", "forest")
+        g:setTo("game:dungeon", "cave")
         t = 0
       else
         g:changeState("closing")

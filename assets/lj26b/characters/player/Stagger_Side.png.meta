@@ -1,0 +1,15 @@
+{
+  "animation": {
+    "layout": "vertical",
+    "tileSize": 32,
+    "padding": 1,
+    "frameTime": 50,
+    "frames": [ "0-1", "2:2" ],
+    "userdata": {
+      "flashFrames": [ 0, 1 ]
+    }
+  },
+  "postLoad": {
+    "filter": "nearest"
+  }
+}

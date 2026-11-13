@@ -34,9 +34,15 @@ character.new = function(config)
 
   if config.states then
     for name, rawDefinition in pairs(config.states) do
-      self.states[name] = stateFactory.new(rawDefinition)
+      local stateCopy = { }
+      for k, v in pairs(rawDefinition) do
+        stateCopy[k] = v
+      end
+      self.states[name] = stateFactory.new(stateCopy)
+
       if self.states[name].sprites then
-        for key, sprite in pairs(self.states[name].sprites) do
+        self.states[name].sprites = { }
+        for key, sprite in pairs(rawDefinition.sprites) do
           self.states[name].sprites[key] = sprite:clone()
         end
       end

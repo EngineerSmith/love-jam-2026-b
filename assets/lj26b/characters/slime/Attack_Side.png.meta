@@ -1,0 +1,17 @@
+{
+  "animation": {
+    "layout": "vertical",
+    "tileSize": 32,
+    "padding": 1,
+    "frameTime": 70,
+    "frames": [ "0:2", "1-2", "3:3", 4 ],
+    "userdata": {
+      "lungeStart": 5,
+      "lungeEnd": 7,
+      "attackOn": 7
+    }
+  },
+  "postLoad": {
+    "filter": "nearest"
+  }
+}

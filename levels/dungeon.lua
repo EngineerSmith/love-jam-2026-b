@@ -55,33 +55,14 @@ end
 local setLevelForFlag = function(level, flag)
   if flag == "forest" then
     level:setLightPreset("noon")
-  else
-    -- level:setLightPreset("midnight")
-    -- level:setLight(
-    --   { 0.20, 0.30, -0.80 },
-    --   { 0.35, 0.40,  0.50 },
-    --   { 0.15, 0.16,  0.20 }
-    -- )
-    -- level:setLight(
-    --   { 0.00, 0.00, -1.00 },
-    --   { 0.5, 0.35, 0.20 },
-    --   { .18, .14, .10 }
-    -- )
+  elseif flag == "cave_1" then
     level:setLight(
       { 0.20, 0.30, 0.80 },
       { 0.70, 0.75,  0.85 },
       { 0.30, 0.32,  0.38 }
     )
-    -- level:setLight(
-    --   { 0.00, 0.00, -1.00 },
-    --   { 0.80, 0.55, 0.30 },
-    --   { .35, .25, .18 }
-    -- )
-    -- level:setLight(
-    --   { 0.20, 0.30, 0.80 },
-    --   { 1.10, 1.15,  1.25 },
-    --   { 0.50, 0.52,  0.60 }
-    -- )
+  else
+    level:setLightPreset("sunset")
   end
 end
 
@@ -411,6 +392,10 @@ return function(level, flag)
   end
 
   setLevelForFlag(level, flag)
+  level.flag = flag
+  if flag == "cave_1" or flag == "cave_2" then
+    flag = "cave"
+  end
 
   local rooms = { }
   if flag == "forest" or flag == "cave" then
@@ -516,9 +501,11 @@ return function(level, flag)
   level.active = function(level, flag)
     dungeonCamera:setCurrent()
     dungeonCamera:setAspectRatio(love.graphics.getDimensions())
+    dungeonCamera:setPerspective(math.rad(75))
 
     player.transform:scaleBy(1,1,1)
     player.isInTransition = false
+    player.isInCutscene = false
 
     local spawn = level:getFlag("spawn")
     player:addToLevel(level, spawn)

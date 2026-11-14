@@ -1,4 +1,5 @@
 
+local audioManager = require("src.core.audioManager")
 local sprite = require("src.core.graphicsManager.sprite")
 
 local character = require("lj26b:character")
@@ -67,6 +68,9 @@ trainingDummy.takeHit = function(self, damage)
   local isDamaged = getmetatable(trainingDummy).takeHit(self, damage)
   self:changeState(self.states.stagger)
   self.attributes.currentHealth = self.attributes.maxHealth -- Dummy cannot die
+  if isDamaged then
+    audioManager.play("lj26b:audio/entities/dummy/hit")
+  end
   return isDamaged
 end
 

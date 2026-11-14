@@ -88,7 +88,7 @@ room.update = function(self, dt)
       local x, y, z = unpack(self.flags.exit.position, 1, 3)
       local tx, ty, tz = unpack(self.transform.position)
       self.gate = gate.new(self.level, tx + x, ty + y, tz + z)
-      self.gate:setTo("game:city", "spawn")
+      self.gate:setTo("game:city", self.level.flag)
     end
   end
   if self.moveRocks then

@@ -143,16 +143,36 @@ character.removeFromLevelWorld = function(self, level)
 end
 
 local collisionResponses = {
-  slide = function() return "slide" end,
-  touch = function() return "touch" end,
-  cross = function() return "cross" end,
-  bounce = function() return "bounce" end,
+  slide = function(_, _, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
+    return "slide"
+  end,
+  touch = function(_, _, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
+    return "touch"
+  end,
+  cross = function(_, _, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
+    return "cross"
+  end,
+  bounce = function(_, _, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
+    return "bounce"
+  end,
 }
 
 character.moveTowardsGoal = function(self, goalX, goalY, collisionResponse)
   if not self.currentLevel then return end
+  if not self.currentLevel.world:has(self) then return end
 
-  local actualX, actualY = self.currentLevel.world:move(self, goalX, goalY, type(collisionResponse) == "string" and collisionResponses[collisionResponse] or collisionResponse or nil)
+  local cr = collisionResponses["slide"]
+  if type(collisionResponse) == "string" then
+    cr = collisionResponses[collisionResponse]
+  elseif type(collisionResponse) == "function" then
+    cr = collisionResponse
+  end
+
+  local actualX, actualY = self.currentLevel.world:move(self, goalX, goalY, cr)
   self.transform:set(actualX, actualY, self.transform.position[3])
 end
 

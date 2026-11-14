@@ -169,7 +169,7 @@ gate.update = function(self, dt)
   end
 
   if self.currentState == states.stable and self.targetLevel and
-      self.currentLevel and self.currentLevel.player then
+  self.currentLevel and self.currentLevel.player then
     local player = self.currentLevel.player
     if not player.isInTransition then
       local p = self.transform.position

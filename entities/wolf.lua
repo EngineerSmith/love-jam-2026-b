@@ -21,8 +21,10 @@ local wolfBrain = function(char, dt)
 
   if char.currentState == char.states.idle then
     if magSq <= (aggroRadius * aggroRadius) then
-      char:changeState(char.states.move)
-      char.target = player
+      if char.attributes.attackCooldown <= 0 or magSq > attackRadius * attackRadius then
+        char:changeState(char.states.move)
+        char.target = player
+      end
     end
   elseif char.currentState == char.states.move then
     local camForwardX, camForwardY, camRightX, camRightY = camera.current:getHorizontalAxes()
@@ -51,6 +53,11 @@ states.idle = {
     self.motion = "idle"
     self.sprite = self.sprites.idle:start()
   end,
+  update = function(_, char, dt)
+    if char.attributes.attackCooldown > 0 then
+      char.attributes.attackCooldown = char.attributes.attackCooldown - dt
+    end
+  end,
 }
 
 states.move = {
@@ -72,6 +79,12 @@ states.move = {
     local tx, ty = char.target.transform.position[1], char.target.transform.position[2]
     local cx, cy = char.transform.position[1], char.transform.position[2]
     local dx, dy = tx - cx, ty - cy
+    local magSq = (dx * dx + dy * dy)
+    local attackRadius = char.attributes.attackRadius
+    if char.attributes.attackCooldown > 0 and magSq <= attackRadius * attackRadius then
+      char:changeState(char.states.idle)
+      return
+    end
 
     local camForwardX, camForwardY, camRightX, camRightY = camera.current:getHorizontalAxes()
     local lateralDist = dx * camRightX   + dy * camRightY

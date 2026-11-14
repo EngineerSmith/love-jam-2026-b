@@ -1,3 +1,7 @@
+local audioManager = require("src.core.audioManager")
+audioManager.defineBus("player", 0.8)
+audioManager.defineBus("monster", 0.6)
+
 
 local camera = require("s3d:camera")
 local levelManager = require("s3d:levelManager")

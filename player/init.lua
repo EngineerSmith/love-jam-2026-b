@@ -2,7 +2,9 @@ local logger = LOGGER:extend("player")
 
 local vornmath = require("libs.vornmath")
 
+local physicsManager = require("src.core.physicsManager")
 local sprite = require("src.core.graphicsManager.sprite")
+local audioManager = require("src.core.audioManager")
 
 local uiManager = require("menu:uiManager")
 
@@ -53,17 +55,21 @@ states.move = {
     end
   end,
   update = function(self, char, dt)
-    if not char.isInTransition then
+    if not char.isInTransition and not char.isInCutscene then
       if controller:pressed("inventory") then
         if uiManager.isInStack("game:menu.inventory") then
           uiManager.pop("game:menu.inventory")
+          audioManager.play("lj26b:audio/ui/close")
         elseif uiManager.isInStack("game:menu.cookingPot") then
           uiManager.pop("game:menu.cookingPot")
+          audioManager.play("lj26b:audio/ui/close")
         else
           if char.currentLevel.id == "game:kitchen" then
             uiManager.push("game:menu.cookingPot")
+            audioManager.play("lj26b:audio/ui/open")
           else
             uiManager.push("game:menu.inventory")
+            audioManager.play("lj26b:audio/ui/open")
           end
         end
       end
@@ -98,10 +104,10 @@ states.move = {
             if char.currentLevel.id == "game:city" then
               local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
               local screenX, screenY = camera.current:project(x, y, z + .5)
-              -- levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
-              levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "cave")
+              levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
+              -- levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "cave")
             elseif char.currentLevel.id == "game:kitchen" then
-              levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+              levelManager.setActiveLevel("game:city", .5, .5, "kitchen")
             end
           end
         end
@@ -181,8 +187,15 @@ states.dodge = {
       end
     end
     self.sprite = chargeSprite:start(self.onChargeFinish)
+
+    audioManager.play("lj26b:audio/entities/player/dodge")
   end,
-  collisionResponse = function(_, other, _, _)
+  baseCollisionResponse = function(_, _, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
+    return "slide"
+  end,
+  collisionResponse = function(_, other, shape, otherShape)
+    if shape.tag ~= nil and shape.tag == otherShape.tag then return "cross" end
     -- Can't check getmetatable, as `character:clone` can change it
     if type(other) == "table" and other.type == "character" then
       return "cross"
@@ -198,7 +211,7 @@ states.dodge = {
     if self.dodgeTimer <= 0 then
       if char.currentLevel then
         local px, py = char.transform.position[1], char.transform.position[2]
-        local collisions, count = char.currentLevel.world:test(char, px, py)
+        local collisions, count = char.currentLevel.world:test(char, px, py, baseCollisionResponse)
         if count > 0 then
           char.attributes.invulnerable = true -- as the character is technically stuck, we don't want the player to feel it is unfair
 
@@ -310,6 +323,7 @@ states.attack = {
       local targetFrameIndex = self.sprite.metaUserdata.attackOn + 1
       if self.sprite.frameIndex >= targetFrameIndex then
         self.hasHit = true
+        audioManager.play("lj26b:audio/entities/player/attack")
 
         local handSlot = inventory.slots.equipment.hand
         local weapon = handSlot and handSlot.item and handSlot.item.stats or {
@@ -326,6 +340,7 @@ states.attack = {
             local damage = char.attributes.baseDamage + weapon.damage
             if target.char:takeHit(damage) then
               -- success
+              
             else
               -- failed, e.g. invulnerable tag
             end
@@ -433,9 +448,11 @@ local attributes = setmetatable({ }, {
   __newindex = baseAttributes,
 })
 
+physicsManager.newTag("player", { })
+
 local player = character.new({
   facing = { 0, 1 },
-  shape = require("libs.slick").newCircleShape(0, 0, 0.2),
+  shape = require("libs.slick").newCircleShape(0, 0, 0.2, nil, physicsManager.getTag("player")),
   states = states,
   defaultState = "move",
   attributes = attributes,

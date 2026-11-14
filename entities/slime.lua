@@ -1,4 +1,5 @@
 local sprite = require("src.core.graphicsManager.sprite")
+local audioManager = require("src.core.audioManager")
 
 local camera = require("s3d:camera")
 
@@ -54,11 +55,19 @@ states.move = {
   enter = function(self, char)
     self.motion = "crawling"
     self.sprite = self.sprites.move:start()
+    self.t = 0
+    audioManager.play("lj26b:audio/entities/slime/move")
   end,
   update = function(self, char, dt)
     if not char.target then return end
     if char.attributes.attackCooldown > 0 then
       char.attributes.attackCooldown = char.attributes.attackCooldown - dt
+    end
+
+    self.t = self.t + dt
+    if self.t > 1 then
+      self.t = 0
+      audioManager.play("lj26b:audio/entities/slime/move")
     end
 
     local tx, ty = char.target.transform.position[1], char.target.transform.position[2]
@@ -129,9 +138,7 @@ states.attack = {
 
     if not self.hasHit and mud.attackOn then
       local targetFrameIndex = mud.attackOn + 1
-      print("hit", currentFrame, targetFrameIndex)
       if currentFrame >= targetFrameIndex then
-        print("PASSED!")
         self.hasHit = true
         if char.target then
           local tx, ty = char.target.transform.position[1], char.target.transform.position[2]

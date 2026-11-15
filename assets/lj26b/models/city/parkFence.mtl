@@ -1,0 +1,52 @@
+# Blender 5.1.0 MTL File: 'parkFence.blend'
+# www.blender.org
+
+newmtl Cube_Material
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Textures/ParkFence_1.png
+map_d Textures/ParkFence_1.png
+
+newmtl Cube_Material.001
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Textures/Park_Fence_1.png
+map_d Textures/Park_Fence_1.png
+
+newmtl Cube_Material.002
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Textures/ParkFence_1.png
+map_d Textures/ParkFence_1.png
+
+newmtl Plane_Material
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Textures/Park_Fence_Railings.png
+map_d Textures/Park_Fence_Railings.png
+
+newmtl Plane_Material.001
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Textures/Park_Fence_Railings.png
+map_d Textures/Park_Fence_Railings.png

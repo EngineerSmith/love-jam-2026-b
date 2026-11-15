@@ -5,10 +5,14 @@ local logger = LOGGER:extend("level"):extend("dungeon", "bright_yellow")
 local vornmath = require("libs.vornmath")
 
 local graphicsManager = require("src.core.graphicsManager")
+local windowManager = require("src.core.windowManager")
+local assetManager = require("src.core.assetManager")
 
 local camera = require("s3d:camera")
 local transform = require("s3d:transform")
 local levelManager = require("s3d:levelManager")
+
+local uiManager = require("menu:uiManager")
 
 local player = require("lj26b:player")
 
@@ -55,7 +59,7 @@ end
 local setLevelForFlag = function(level, flag)
   if flag == "forest" then
     level:setLightPreset("noon")
-  elseif flag == "cave_1" then
+  elseif flag == "cave_0" or flag == "cave_1" then
     level:setLight(
       { 0.20, 0.30, 0.80 },
       { 0.70, 0.75,  0.85 },
@@ -393,7 +397,13 @@ return function(level, flag)
 
   setLevelForFlag(level, flag)
   level.flag = flag
-  if flag == "cave_1" or flag == "cave_2" then
+
+  if flag == "cave_0" then
+    level.flag = "cave_1"
+    uiManager.push("game:menu.tutorial4")
+  end
+
+  if flag == "cave_0" or flag == "cave_1" or flag == "cave_2" then
     flag = "cave"
   end
 
@@ -549,18 +559,37 @@ return function(level, flag)
     if not level.boxes or false then return end
     lg.push("all")
     lg.reset(); lg.origin()
-    lg.translate(lg.getWidth()/6, lg.getHeight()/6)
-    lg.rotate(math.rad(-90)); lg.scale(-1, 1) -- To match camera-ish angle
-    for _, box in ipairs(level.boxes) do
-      lg.push()
-      lg.translate(box.x, box.y)
-      lg.rotate(box.r)
-      if box.isSpawn then lg.setColor(.6, .6, 1, 1)
-      elseif box.isExit then lg.setColor(1, .8, .4, 1)
-      else lg.setColor(1, 1, 1, 1) end
-      lg.rectangle("fill", -box.w/2, -box.h/2, box.w, box.h)
-      lg.pop()
+    lg.push()
+    local scale = windowManager.scale
+    local font = assetManager.getFont("lj26b:fonts/Comic_Neue/ComicNeue-Regular", 14 * scale)
+    if font then
+      if not player.isInTransition and not player.isInCutscene then
+        local text = [[
+Attack: Mouse 1 (left mouse button)
+Move: WASD
+Dodge: Space
+Inventory: E
+]]
+        lg.print(text, font, 5 * scale, 5 * scale)
+      elseif player.isInCutscene then
+        lg.print("Continue: Mouse 1 (left mouse button)", font, 5 * scale, 5 * scale)
+      end
     end
+    lg.pop()
+
+    -- minimap
+    -- lg.translate(lg.getWidth()/6, lg.getHeight()/6)
+    -- lg.rotate(math.rad(-90)); lg.scale(-1, 1) -- To match camera-ish angle
+    -- for _, box in ipairs(level.boxes) do
+    --   lg.push()
+    --   lg.translate(box.x, box.y)
+    --   lg.rotate(box.r)
+    --   if box.isSpawn then lg.setColor(.6, .6, 1, 1)
+    --   elseif box.isExit then lg.setColor(1, .8, .4, 1)
+    --   else lg.setColor(1, 1, 1, 1) end
+    --   lg.rectangle("fill", -box.w/2, -box.h/2, box.w, box.h)
+    --   lg.pop()
+    -- end
     lg.pop()
   end
 

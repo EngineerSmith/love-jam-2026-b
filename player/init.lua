@@ -101,13 +101,15 @@ states.move = {
         end
         if controller:pressed("kitchen") then
           if char.currentLevel then
+            local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
+            local screenX, screenY = camera.current:project(x, y, z + .75)
+            local nx, ny = screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight()
             if char.currentLevel.id == "game:city" then
-              local x, y, z = char.transform.position[1], char.transform.position[2], char.transform.position[3]
-              local screenX, screenY = camera.current:project(x, y, z + .5)
-              levelManager.setActiveLevel("game:kitchen", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "spawn")
-              -- levelManager.setActiveLevel("game:dungeon", screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight(), "cave")
-            elseif char.currentLevel.id == "game:kitchen" then
-              levelManager.setActiveLevel("game:city", .5, .5, "kitchen")
+              char._HACKYSOLUTIONMAGICHuHuHu = { x, y, z, char.currentLevel.state }
+              levelManager.setActiveLevel("game:kitchen", nx, ny, "spawn")
+              -- levelManager.setActiveLevel("game:dungeon", nx, ny, "cave")
+            elseif char.currentLevel.id == "game:kitchen" and not require("lj26b:cookingPot").isBusy() then
+              levelManager.setActiveLevel("game:city", nx, ny, char._HACKYSOLUTIONMAGICHuHuHu)
             end
           end
         end

@@ -28,7 +28,7 @@ CONTEXT.hook("load", function(scene)
     levelManager.warmLevel("game:city")
     levelManager.warmLevel("game:kitchen")
   elseif scene == "game" then
-    levelManager.setActiveLevel("game:city", .5, .5, "spawn")
+    levelManager.setActiveLevel("game:city", .5, .5, "tutorial")
   end
 end)
 

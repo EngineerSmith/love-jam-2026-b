@@ -70,7 +70,8 @@ return function(scene, uiManager)
       padding = 5,
       onPressed = function(node)
         if not node.state.active then return end
-        if cookingPot.isBusy then return end
+        print(cookingPot.isBusy())
+        if cookingPot.isBusy() then return end
         local success = inventory.consumeItems(recipe.from)
         if not success then return end
         if recipe.to then

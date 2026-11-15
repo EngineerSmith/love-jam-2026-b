@@ -1,7 +1,12 @@
 local slick = require("libs.slick")
 
+local windowManager = require("src.core.windowManager")
+local assetManager = require("src.core.assetManager")
+
 local camera = require("s3d:camera")
 local levelManager = require("s3d:levelManager")
+
+local uiManager = require("menu:uiManager")
 
 local player = require("lj26b:player")
 
@@ -35,6 +40,18 @@ return function(level)
     levelManager.setTransitionPos(screenX / love.graphics.getWidth(), screenY / love.graphics.getHeight())
 
     cookingPot.setSpawnPoint(-2, 0, .5, -.5, 0, 0)
+
+    if player._HACKYSOLUTIONMAGICHuHuHu then
+      local flag = player._HACKYSOLUTIONMAGICHuHuHu[4]
+      if flag == "kitchen" then
+        -- Tutorial 2
+        uiManager.push("game:menu.tutorial2")
+      end
+    end
+  end
+
+  level.deactivate = function()
+    uiManager.pop("game:menu.tutorial2")
   end
 
   level.update = function(self, dt)
@@ -82,6 +99,30 @@ return function(level)
       lidProp.transform:set(-2, 0, 1.4):rotateQ(1, 0, 0, 0)
       potProp.transform:scaleBy(1, 1, 1)
     end
+  end
+
+  local lg = love.graphics
+  level.draw = function(...)
+    getmetatable(level).draw(...)
+    lg.push("all")
+    lg.reset(); lg.origin()
+    local scale = windowManager.scale
+    local font = assetManager.getFont("lj26b:fonts/Comic_Neue/ComicNeue-Regular", 14 * scale)
+    if font then
+      if not player.isInTransition and not player.isInCutscene then
+        local text = [[
+Move: WASD
+Cooking Pot: E
+]]
+        if not cookingPot.isBusy() then
+          text = text .. "Kitchen Exit: Tab"
+        end
+        lg.print(text, font, 5 * scale, 5 * scale)
+      elseif player.isInCutscene then
+        lg.print("Continue: Mouse 1 (left mouse button)", font, 5 * scale, 5 * scale)
+      end
+    end
+    lg.pop()
   end
 
   level:setLight(

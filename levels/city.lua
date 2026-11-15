@@ -2,10 +2,13 @@ local lg = love.graphics
 
 local slick = require("libs.slick")
 
+local windowManager = require("src.core.windowManager")
 local assetManager = require("src.core.assetManager")
 
 local camera = require("s3d:camera")
 local levelManager = require("s3d:levelManager")
+
+local uiManager = require("menu:uiManager")
 
 local player = require("lj26b:player")
 
@@ -19,7 +22,7 @@ local itemDefinitions = require("lj26b:inventory.itemDefinitions")
 
 local gate = require("lj26b:gate")
 
-return function(level, flag)
+return function(level)
   local cityCamera = camera.new()
 
   level.getResourceKeys = function(_, outKeys, inMap)
@@ -55,6 +58,21 @@ return function(level, flag)
       level.state = "old"
     end
 
+    local jumpTo
+    if type(flag) == "table" then -- Coming back from kitchen
+      local x, y, z, prevState = unpack(flag)
+      level.state = prevState
+      jumpTo = { x, y, z }
+      if level.state == "kitchen" then
+        flag = "kitchen"
+        level.state = "new"
+        if level.world and level.world:has("tutorialBlock") then
+          level.world:remove("tutorialBlock")
+        end
+        uiManager.push("game:menu.tutorial3")
+      end
+    end
+
     cityCamera:setCurrent()
     cityCamera:setAspectRatio(love.graphics.getDimensions())
     cityCamera:setPerspective(math.rad(75))
@@ -66,7 +84,8 @@ return function(level, flag)
       if f == "tutorial" then
         f = "spawn"
       end
-      player:addToLevel(level, level:getFlag(f))
+      local fResult = level:getFlag(f)
+      player:addToLevel(level, jumpTo or fResult)
     else
       player:addToLevel(level)
     end
@@ -98,27 +117,16 @@ return function(level, flag)
     local td = trainingDummy:clone()
     td:addToLevel(level, { 19.5, -11, 0 })
 
-    print(">", flag)
     if flag == "tutorial" then
       local w, h = 9, 1
       local x, y = -w/2, -h/2
-      level.world:add({"tutorialBlock"}, 17.5, -18.5, slick.newRectangleShape(x, y, w, h))
-      print("hit")
-      -- level:addStaticModel("lj26b:models/city/coobe", 17.5, -18.5, -1.2)
-      --   :scaleBy(9, 1, .5)
+      level.world:add("tutorialBlock", 17.5, -18.5, slick.newRectangleShape(x, y, w, h))
+      player.isInCutscene = true
+      uiManager.push("game:menu.tutorial1")
+      level.state = "kitchen"
     end
 
-    -- local wolf = wolf:clone()
-    -- wolf:addToLevel(level, { -5, 0, 0 })
-
-    -- local c = crowd:clone()
-    -- c:addToLevel(level, { 3, 0, 0 })
-    -- c:setPath({
-      storeFrontCrowd = flockManager.new(level, 200, {
-      -- { 5, 5, 0 },
-      -- {  10, 0, 0 },
-      -- { -10, 0, 0 },
-      -- { 0, 5, 0 },
+    storeFrontCrowd = flockManager.new(level, 200, {
       { 25.5, -21, 0 },
       {-22.5, -21, 0 },
     })
@@ -148,21 +156,8 @@ return function(level, flag)
       { -16, -19.2, 0 },
     })
 
-
-    -- itemDefinitions["void_peach"]:spawn(level, { 3, -3, 0 })
-    -- itemDefinitions["wolf_tuff"]:spawn(level, { 3, -2.5, 0 })
-    -- itemDefinitions["slime_jelly"]:spawn(level, { 3, -2, 0 })
-    -- itemDefinitions["empty_jar"]:spawn(level, { 3, -1.5, 0 })
     itemDefinitions["void_jam"]:spawn(level, { -13, 35.5, 0 })
     itemDefinitions["stringy_jam"]:spawn(level, { -15, 35.5, 0 })
-
-    -- itemDefinitions["void_peach"]:spawn(level, { 3, -3, 0 })
-    -- itemDefinitions["wolf_tuff"]:spawn(level, { 3, -2.5, 0 })
-    -- itemDefinitions["slime_jelly"]:spawn(level, { 3, -2, 0 })
-
-    -- itemDefinitions["void_peach"]:spawn(level, { 3, -3, 0 })
-    -- itemDefinitions["wolf_tuff"]:spawn(level, { 3, -2.5, 0 })
-    -- itemDefinitions["stick"]:spawn(level, { -3, -3, 0 })
   end
 
   level.deactivate = function()
@@ -173,6 +168,11 @@ return function(level, flag)
       end
     end
     level:removeAllCharacter()
+
+    if level.state == "kitchen" or level.state == "tutorial" then
+      -- Probably entering the kitchen
+      uiManager.pop("game:menu.tutorial1")
+    end
   end
 
   local t, g = 10 
@@ -182,6 +182,7 @@ return function(level, flag)
 
     if storeFrontCrowd then storeFrontCrowd:update(dt) end
     if parkCrowd then parkCrowd:update(dt) end
+
 
     local pt = player.transform
     local px, py, z = pt.position[1], pt.position[2], pt.position[3]
@@ -209,7 +210,7 @@ return function(level, flag)
       t = t + dt
       if t >= 4 then
         level.state = "cutscene2"
-        g:setTo("game:dungeon", "cave_1")
+        g:setTo("game:dungeon", "cave_0")
       end
       if t >= 2 then
         camera.current:lookAt(2.5, -25, 3, 2.5, -19.5, 1)
@@ -238,31 +239,27 @@ return function(level, flag)
       px = math.min(math.max(px, -18.5), 20)
       camera.current:lookAt(px + ax, py + ay, 2.5, px, py, 1.5)
     end
-    -- camera.current:lookAt(px, py - 3, z + 2.5, x, y, z + 1.5)
-    -- print(x + 3, y, z + 1.5 + x, x, y, z + 1.5)
-    -- camera.current:lookAt(3, 0, 1.8, 0, 0, 1.8)
 
-    
-    -- local x = px + math.cos(t * 2) * 3
-    -- local y = py + math.sin(t * 2) * 3
-    -- camera.current:lookAt(x, y, 2.5, px, py, 1.5)
-    -- if t >= 12 then
-    --   if not g then
-    --     g = gate.new(level, -1, 2, 0)
-    --     g:setTo("game:dungeon", "cave")
-    --     t = 0
-    --   else
-    --     g:changeState("closing")
-    --     t, g = 4, nil
-    --   end
-    -- end
   end
 
   level.draw = function(...)
     getmetatable(level).draw(...)
     lg.push("all")
     lg.reset(); lg.origin()
-    lg.print(player.transform.position, 10, 10)
+    local scale = windowManager.scale
+    local font = assetManager.getFont("lj26b:fonts/Comic_Neue/ComicNeue-Regular", 14 * scale)
+    if font then
+      if not player.isInTransition and not player.isInCutscene then
+        local text = [[
+Move: WASD
+Kitchen: Tab
+Inventory: E
+]]
+        lg.print(text, font, 5 * scale, 5 * scale)
+      elseif player.isInCutscene then
+        lg.print("Continue: Mouse 1 (left mouse button)", font, 5 * scale, 5 * scale)
+      end
+    end
     lg.pop()
   end
 

@@ -1,0 +1,53 @@
+{
+  "lj26b:audio/ui/open": {
+    "bus": "ui",
+    "volume": 0.4,
+    "group": [
+      "lj26b:audio/ui/doorOpen_000",
+      "lj26b:audio/ui/doorOpen_001",
+      "lj26b:audio/ui/doorOpen_002"
+    ]
+  },
+  "lj26b:audio/ui/close": {
+    "bus": "ui",
+    "volume": 0.4,
+    "group": [
+      "lj26b:audio/ui/doorClose_000",
+      "lj26b:audio/ui/doorClose_001"
+    ]
+  },
+  "lj26b:audio/entities/player/dodge": {
+    "bus": "player",
+    "volume": 0.05,
+    "group": [
+      "lj26b:audio/entities/player/cloth1"
+    ]
+  },
+  "lj26b:audio/entities/player/attack": {
+    "bus": "player",
+    "volume": 0.1,
+    "group": [
+      "lj26b:audio/entities/player/drawKnife1",
+      "lj26b:audio/entities/player/drawKnife2",
+      "lj26b:audio/entities/player/drawKnife3"
+    ]
+  },
+  "lj26b:audio/entities/dummy/hit": {
+    "bus": "monster",
+    "volume": 0.2,
+    "group": [
+      "lj26b:audio/entities/dummy/impactSoft_heavy_000",
+      "lj26b:audio/entities/dummy/impactSoft_heavy_001",
+      "lj26b:audio/entities/dummy/impactSoft_heavy_002",
+      "lj26b:audio/entities/dummy/impactSoft_heavy_003",
+      "lj26b:audio/entities/dummy/impactSoft_heavy_004"
+    ]
+  },
+  "lj26b:audio/entities/slime/move": {
+    "bus": "monster",
+    "volume": 0.1,
+    "group": [
+      "lj26b:audio/entities/slime/slime_000"
+    ]
+  }
+}

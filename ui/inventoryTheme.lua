@@ -419,6 +419,61 @@ local theme = {
         end
         lg.pop()
       end,
+    },
+    message = {
+      measure = function(node)
+        local scale = windowManager.scale
+        local fontSize = (node.state.fontSize or 15) * scale
+        local key = node.state.bold and fontKeyBold or fontKey
+        local font = assetManager.getFont(key, fontSize)
+        local text = node.state.targetText or ""
+
+        if not font or not text or text == "" then return 0, 0 end
+        if not node.state.wrap or not node.lastW then
+          return font:getWidth(text), font:getHeight()
+        else
+          local width, wrappedText = font:getWrap(text, node.lastW + 10 * scale)
+          return width, #wrappedText * (font:getHeight() + font:getLineHeight())
+        end
+      end,
+      update = function(node, dt)
+        if node.state.text ~= node.state.targetText then
+          node.state.timer = (node.state.timer or 0) + dt
+          local characterTicker = node.state.characterTicker or 0.06
+          while node.state.timer > characterTicker do
+            node.state.timer = node.state.timer - characterTicker
+            node.state.charIndex = (node.state.charIndex or 0) + 1
+          end
+          if (node.state.charIndex or 0) > #(node.state.text or "") then
+          node.state.text = node.state.targetText:sub(1, node.state.charIndex)
+          end
+        end
+      end,
+      draw = function(node)
+        local scale = windowManager.scale
+        local fontSize = (node.state.fontSize or 15) * scale
+        local key = node.state.bold and fontKeyBold or fontKey
+        local font = assetManager.getFont(key, fontSize)
+        local text = node.state.text or ""
+
+        if not font or not text or text == "" then return end
+
+        lg.push("all")
+        lg.translate(node.x + node.w / 2, node.y + node.h / 2)
+        lg.setColor(1,1,1,1)
+        if node.state.color then
+          lg.setColor(node.state.color)
+        end
+        if node.state.wrap then
+          local _, wrappedText = font:getWrap(text, node.w)
+          for i, line in ipairs(wrappedText) do
+            lg.print(line, font, -font:getWidth(line)/2, (i - 1) * (font:getHeight() + font:getLineHeight()) - node.h / 2)
+          end
+        else
+          lg.print(text, font, -font:getWidth(text)/2, -font:getHeight()/2)
+        end
+        lg.pop()
+      end,
     }
   },
   cell = {
